@@ -1,58 +1,63 @@
 import os
+from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
-from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph
 from reportlab.lib.utils import ImageReader
 
 # =====================================================
 # CONFIGURAÇÕES GERAIS
 # =====================================================
 
+PAGE_WIDTH, PAGE_HEIGHT = A4
+
 MARGEM_ESQ = 2.5 * cm
 MARGEM_DIR = 2.5 * cm
+MARGEM_SUP = 2.5 * cm
 MARGEM_INF = 3.0 * cm
-LARGURA_TEXTO = A4[0] - (MARGEM_ESQ + MARGEM_DIR)
 
-FONT_TEXTO = "Helvetica"
-FONT_TITULO = "Helvetica-Bold"
+LARGURA_UTIL = PAGE_WIDTH - (MARGEM_ESQ + MARGEM_DIR)
 
-SIZE_TEXTO = 11
-SIZE_TITULO = 14
-SIZE_TITULO_GRANDE = 16
+ALTURA_CABECALHO = 4.0 * cm
+ESPACO_APOS_LINHA = 28  # dois espaçamentos
 
-LEADING = 16
-ESPACO_PARAGRAFO = 6
+styles = getSampleStyleSheet()
+STYLE_TEXTO = styles["Normal"]
+STYLE_TEXTO.fontName = "Helvetica"
+STYLE_TEXTO.fontSize = 11
+STYLE_TEXTO.leading = 15
+
+STYLE_TITULO = styles["Heading2"]
+STYLE_TITULO.fontName = "Helvetica-Bold"
+STYLE_TITULO.fontSize = 12
+STYLE_TITULO.spaceAfter = 12
 
 # =====================================================
-# FUNÇÕES AUXILIARES
+# CONTEXTO DE PÁGINA
 # =====================================================
 
-def _footer(c, pagina):
-    c.setFont("Helvetica-Oblique", 8)
-    c.drawRightString(
-        A4[0] - MARGEM_DIR,
-        1.5 * cm,
-        f"Página {pagina}"
-    )
+def _novo_contexto(c, cliente, validade):
+    y_inicio_corpo = PAGE_HEIGHT - MARGEM_SUP - ALTURA_CABECALHO - ESPACO_APOS_LINHA
+    return {
+        "c": c,
+        "pagina": 1,
+        "y": y_inicio_corpo,
+        "cliente": cliente,
+        "validade": validade,
+    }
 
+# =====================================================
+# CABEÇALHO COMERCIAL
+# =====================================================
 
-def _nova_pagina(c, pagina, titulo, subtitulo):
-    _footer(c, pagina)
-    c.showPage()
-    pagina += 1
-    y = _cabecalho(c, titulo, subtitulo)
-    return y, pagina
+def _cabecalho_comercial(ctx):
+    c = ctx["c"]
+    cliente = ctx["cliente"]
+    validade = ctx["validade"]
 
-def _cabecalho_comercial(c, cliente, validade):
-    largura, altura = A4
-
-    margem_esq = 2.5 * cm
-    margem_dir = 2.5 * cm
-    margem_top = 2.5 * cm
-
-    altura_cabecalho = 4.0 * cm
-    y_topo = altura - margem_top
+    y_topo = PAGE_HEIGHT - MARGEM_SUP
 
     # Logo
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -62,266 +67,173 @@ def _cabecalho_comercial(c, cliente, validade):
         logo = ImageReader(logo_path)
         c.drawImage(
             logo,
-            margem_esq,
-            y_topo - altura_cabecalho + 0.5 * cm,
+            MARGEM_ESQ,
+            y_topo - ALTURA_CABECALHO + 0.5 * cm,
             width=3.2 * cm,
             height=3.2 * cm,
             preserveAspectRatio=True,
-            mask="auto"
+            mask="auto",
         )
 
     # Texto à direita
     c.setFont("Helvetica-Bold", 14)
-    c.drawRightString(largura - margem_dir, y_topo - 0.5 * cm, "PROPOSTA COMERCIAL")
+    c.drawRightString(
+        PAGE_WIDTH - MARGEM_DIR,
+        y_topo - 0.5 * cm,
+        "PROPOSTA COMERCIAL",
+    )
 
     c.setFont("Helvetica", 11)
-    c.drawRightString(largura - margem_dir, y_topo - 1.6 * cm, cliente)
+    c.drawRightString(
+        PAGE_WIDTH - MARGEM_DIR,
+        y_topo - 1.6 * cm,
+        cliente,
+    )
 
     c.drawRightString(
-        largura - margem_dir,
+        PAGE_WIDTH - MARGEM_DIR,
         y_topo - 2.6 * cm,
-        f"Validade: {validade}"
+        f"Validade: {validade}",
     )
 
     # Linha horizontal
-    y_linha = y_topo - altura_cabecalho
-    c.line(margem_esq, y_linha, largura - margem_dir, y_linha)
-
-    # Retorna Y inicial do corpo (2 espaçamentos abaixo)
-    return y_linha - (2 * 14)
-
-def _rodape_comercial(c, pagina_atual, total_paginas):
-    largura, _ = A4
-    margem_dir = 2.5 * cm
-    margem_inf = 2.0 * cm
-
-    # Numeração
-    c.setFont("Helvetica", 9)
-    c.drawRightString(
-        largura - margem_dir,
-        margem_inf + 0.6 * cm,
-        f"{pagina_atual} / {total_paginas}"
-    )
-
-    # Linha
-    c.line(
-        margem_dir,
-        margem_inf,
-        largura - margem_dir,
-        margem_inf
-    )
-
-    # Texto centralizado
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(
-        largura / 2,
-        margem_inf - 0.6 * cm,
-        "J Talent Empreendimentos | Proposta Comercial | "
-        "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
-    )
-
-def _draw_linha_justificada(c, palavras, y):
-    largura_palavras = sum(
-        stringWidth(p, FONT_TEXTO, SIZE_TEXTO) for p in palavras
-    )
-    espaco = (LARGURA_TEXTO - largura_palavras) / (len(palavras) - 1)
-    x = MARGEM_ESQ
-
-    for p in palavras:
-        c.drawString(x, y, p)
-        x += stringWidth(p, FONT_TEXTO, SIZE_TEXTO) + espaco
-
-
-def _draw_texto(c, texto, y, pagina, titulo, subtitulo):
-    c.setFont(FONT_TEXTO, SIZE_TEXTO)
-
-    for linha_raw in texto.split("\n"):
-        linha_raw = linha_raw.strip()
-
-        if not linha_raw:
-            y -= ESPACO_PARAGRAFO
-            continue
-
-        # TÍTULO (REGRA A)
-        if linha_raw.startswith("**") and linha_raw.endswith("**"):
-            titulo_txt = linha_raw.replace("**", "").strip()
-
-            if y < MARGEM_INF:
-                y, pagina = _nova_pagina(c, pagina, titulo, subtitulo)
-
-            c.setFont(FONT_TITULO, SIZE_TITULO)
-
-            palavras = titulo_txt.split()
-            linha = ""
-
-            for p in palavras:
-                teste = linha + p + " "
-                if stringWidth(teste, FONT_TITULO, SIZE_TITULO) <= LARGURA_TEXTO:
-                    linha = teste
-                else:
-                    c.drawString(MARGEM_ESQ, y, linha.strip())
-                    y -= LEADING
-                    linha = p + " "
-
-            if linha:
-                c.drawString(MARGEM_ESQ, y, linha.strip())
-                y -= LEADING
-
-            c.setFont(FONT_TEXTO, SIZE_TEXTO)
-            continue
-
-        palavras = linha_raw.split()
-        linha = []
-        largura = 0
-
-        for p in palavras:
-            w = stringWidth(p + " ", FONT_TEXTO, SIZE_TEXTO)
-            if largura + w <= LARGURA_TEXTO:
-                linha.append(p)
-                largura += w
-            else:
-                if y < MARGEM_INF:
-                    y, pagina = _nova_pagina(c, pagina, titulo, subtitulo)
-                _draw_linha_justificada(c, linha, y)
-                y -= LEADING
-                linha = [p]
-                largura = w
-
-        if linha:
-            if y < MARGEM_INF:
-                y, pagina = _nova_pagina(c, pagina, titulo, subtitulo)
-            c.drawString(MARGEM_ESQ, y, " ".join(linha))
-            y -= LEADING
-
-        y -= ESPACO_PARAGRAFO
-
-    return y, pagina
+    y_linha = y_topo - ALTURA_CABECALHO
+    c.line(MARGEM_ESQ, y_linha, PAGE_WIDTH - MARGEM_DIR, y_linha)
 
 # =====================================================
-# PROPOSTA COMERCIAL
+# RODAPÉ COMERCIAL
+# =====================================================
+
+def _rodape_comercial(ctx, total_paginas):
+    c = ctx["c"]
+    pagina = ctx["pagina"]
+
+    c.setFont("Helvetica", 9)
+    c.drawRightString(
+        PAGE_WIDTH - MARGEM_DIR,
+        MARGEM_INF - 0.4 * cm,
+        f"{pagina} / {total_paginas}",
+    )
+
+    c.line(
+        MARGEM_ESQ,
+        MARGEM_INF,
+        PAGE_WIDTH - MARGEM_DIR,
+        MARGEM_INF,
+    )
+
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(
+        PAGE_WIDTH / 2,
+        MARGEM_INF - 1.0 * cm,
+        "J Talent Empreendimentos | Proposta Comercial | "
+        "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br",
+    )
+
+# =====================================================
+# NOVA PÁGINA COMERCIAL
+# =====================================================
+
+def _nova_pagina_comercial(ctx):
+    c = ctx["c"]
+    c.showPage()
+    ctx["pagina"] += 1
+    _cabecalho_comercial(ctx)
+    ctx["y"] = PAGE_HEIGHT - MARGEM_SUP - ALTURA_CABECALHO - ESPACO_APOS_LINHA
+
+# =====================================================
+# DESENHO DE BLOCO DE TEXTO (COM QUEBRA)
+# =====================================================
+
+def _desenhar_bloco(ctx, texto):
+    c = ctx["c"]
+
+    p = Paragraph(texto.replace("\n", "<br/>"), STYLE_TEXTO)
+    w, h = p.wrap(LARGURA_UTIL, ctx["y"])
+
+    if ctx["y"] - h < MARGEM_INF:
+        _nova_pagina_comercial(ctx)
+
+    p.drawOn(c, MARGEM_ESQ, ctx["y"] - h)
+    ctx["y"] -= h + 12
+
+# =====================================================
+# DESENHO DE TÍTULO DE BLOCO
+# =====================================================
+
+def _desenhar_titulo(ctx, titulo):
+    c = ctx["c"]
+
+    p = Paragraph(titulo, STYLE_TITULO)
+    w, h = p.wrap(LARGURA_UTIL, ctx["y"])
+
+    if ctx["y"] - h < MARGEM_INF:
+        _nova_pagina_comercial(ctx)
+
+    p.drawOn(c, MARGEM_ESQ, ctx["y"] - h)
+    ctx["y"] -= h
+
+# =====================================================
+# RELATÓRIO COMERCIAL (FINAL)
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
     caminho,
     cliente,
-    titulo_proposta,
+    _titulo_proposta,
     resumo_exec,
     _texto_inst,
     texto_comercial,
     validade,
     valor_mensal,
     _margem,
-    _cargos
+    _cargos,
 ):
     c = canvas.Canvas(caminho, pagesize=A4)
 
-    paginas = []
-    largura, altura = A4
-    margem_esq = 2.5 * cm
-    margem_dir = 2.5 * cm
-    margem_inf = 3.0 * cm
+    ctx = _novo_contexto(c, cliente, validade)
+    _cabecalho_comercial(ctx)
 
-    # Página 1
-    y = _cabecalho_comercial(c, cliente, validade)
+    # -------- Corpo --------
+    _desenhar_titulo(ctx, "<b>Resumo Executivo</b>")
+    _desenhar_bloco(ctx, resumo_exec)
 
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(margem_esq, y, "Resumo Executivo")
-    y -= 18
-
-    c.setFont("Helvetica", 11)
-    y = _draw_texto(c, resumo_exec, y, 1, "", "")[0]
-
-    y -= 12
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(margem_esq, y, "Resumo Comercial")
-    y -= 18
-
-    c.setFont("Helvetica", 11)
-    y = _draw_texto(c, texto_comercial, y, 1, "", "")[0]
+    _desenhar_titulo(ctx, "<b>Resumo Comercial</b>")
+    _desenhar_bloco(ctx, texto_comercial)
 
     # Valores
-    y -= 20
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(margem_esq, y, "Valor do Contrato")
-    y -= 18
-
     valor_mensal_float = float(
         valor_mensal.replace("R$", "").replace(".", "").replace(",", ".")
     )
 
-    c.setFont("Helvetica", 11)
-    c.drawString(
-        margem_esq,
-        y,
-        f"Valor mensal: R$ {valor_mensal_float:,.2f}"
-    )
-    y -= 16
-
-    c.drawString(
-        margem_esq,
-        y,
-        f"Valor anual (12 meses): R$ {(valor_mensal_float * 12):,.2f}"
+    _desenhar_titulo(ctx, "<b>Valores do Contrato</b>")
+    _desenhar_bloco(
+        ctx,
+        f"Valor mensal do contrato: <b>R$ {valor_mensal_float:,.2f}</b><br/>"
+        f"Valor anual do contrato (12 meses): "
+        f"<b>R$ {(valor_mensal_float * 12):,.2f}</b>",
     )
 
-    paginas.append(c.getPageNumber())
-    total_paginas = len(paginas)
+    # -------- Finalização --------
+    total_paginas = ctx["pagina"]
+    for p in range(1, total_paginas + 1):
+        c.showPage()
 
-    _rodape_comercial(c, 1, total_paginas)
-    c.save()
+    c = canvas.Canvas(caminho, pagesize=A4)
+    ctx = _novo_contexto(c, cliente, validade)
+    _cabecalho_comercial(ctx)
 
-# =====================================================
-# PROPOSTA TÉCNICA
-# =====================================================
-
-def gerar_pdf_tecnico(
-    caminho_pdf,
-    cargos,
-    clt_detalhado,
-    das_total,
-    lucro,
-    das_detalhado
-):
-    c = canvas.Canvas(caminho_pdf, pagesize=A4)
-    pagina = 1
-
-    y = _cabecalho(
-        c,
-        "PROPOSTA TÉCNICA",
-        "Memória de Cálculo – Custos, Encargos e Tributos"
+    _desenhar_titulo(ctx, "<b>Resumo Executivo</b>")
+    _desenhar_bloco(ctx, resumo_exec)
+    _desenhar_titulo(ctx, "<b>Resumo Comercial</b>")
+    _desenhar_bloco(ctx, texto_comercial)
+    _desenhar_titulo(ctx, "<b>Valores do Contrato</b>")
+    _desenhar_bloco(
+        ctx,
+        f"Valor mensal do contrato: <b>R$ {valor_mensal_float:,.2f}</b><br/>"
+        f"Valor anual do contrato (12 meses): "
+        f"<b>R$ {(valor_mensal_float * 12):,.2f}</b>",
     )
 
-    y, pagina = _draw_texto(
-        c,
-        "**Custos por Cargo**",
-        y,
-        pagina,
-        "PROPOSTA TÉCNICA",
-        "Memória de Cálculo – Custos, Encargos e Tributos"
-    )
-
-    for cargo in cargos:
-        linha = (
-            f"{cargo['Cargo']} | "
-            f"Qtd: {cargo['Quantidade']} | "
-            f"Salário Base: R$ {cargo['Salário']:,.2f}"
-        )
-        y, pagina = _draw_texto(
-            c,
-            linha,
-            y,
-            pagina,
-            "PROPOSTA TÉCNICA",
-            "Memória de Cálculo – Custos, Encargos e Tributos"
-        )
-
-    y, pagina = _draw_texto(
-        c,
-        f"**Lucro Mensal: R$ {lucro:,.2f}**",
-        y,
-        pagina,
-        "PROPOSTA TÉCNICA",
-        "Memória de Cálculo – Custos, Encargos e Tributos"
-    )
-
-    _footer(c, pagina)
+    _rodape_comercial(ctx, ctx["pagina"])
     c.save()
