@@ -125,7 +125,8 @@ def _rodape(c, pagina, total):
 # =====================================================
 
 def _nova_pagina(ctx):
-    _rodape(ctx["c"], ctx["pagina"], ctx["pagina"])  # total provisório
+    ctx["paginas"].append(ctx["pagina"])  # registra página
+    _rodape(ctx["c"], ctx["pagina"], 0)   # total provisório
     ctx["c"].showPage()
     ctx["pagina"] += 1
     _cabecalho_comercial(ctx)
@@ -200,8 +201,18 @@ def gerar_proposta_comercial_pdf(
     total_paginas = ctx["pagina"]
 
     # Rodapé da última página
-    _rodape(ctx["c"], ctx["pagina"], ctx["pagina"])
+    # registra última página
+    ctx["paginas"].append(ctx["pagina"])
+    
+    total_paginas = len(ctx["paginas"])
+    
+    # reescreve rodapé corretamente em todas as páginas
+    for i, pagina in enumerate(ctx["paginas"], start=1):
+        ctx["c"].setPage(pagina)
+        _rodape(ctx["c"], pagina, total_paginas)
+    
     c.save()
+
     
 # =====================================================
 # RELATÓRIO TÉCNICO (VERSÃO CONGELADA)
