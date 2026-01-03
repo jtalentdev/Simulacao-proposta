@@ -223,9 +223,6 @@ def gerar_pdf_tecnico(
     lucro,
     das_detalhado
 ):
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import cm
 
     c = canvas.Canvas(caminho_pdf, pagesize=A4)
     largura, altura = A4
