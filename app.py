@@ -114,7 +114,7 @@ st.subheader("Regime Tributário")
 regime_tributario = st.radio(
     "Selecione o regime tributário",
     [
-        "Simples Nacional – Anexo III (33%)",
+        "Simples Nacional – Anexo III (21%)",
         "Lucro Real (18%)"
     ]
 )
