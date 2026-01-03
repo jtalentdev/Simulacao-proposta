@@ -255,22 +255,4 @@ Alterações tributárias devem ser feitas com critério e versionadas
 
 Esta versão corresponde a:
 
-v1.0 – Versão estável e congelada
-
-
-Recomenda-se criar a tag no GitHub após inclusão deste README:
-
-git tag -a v1.0 -m "Versão estável inicial"
-git push origin v1.0
-
-✅ Status do Projeto
-
-✔️ Funcional
-
-✔️ Estável
-
-✔️ Congelado
-
-✔️ Pronto para uso real
-
-✔️ Documentado
+v1.0 – Versão estável
