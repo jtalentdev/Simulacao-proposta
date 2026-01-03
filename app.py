@@ -186,7 +186,7 @@ if st.button("Calcular Precificação"):
     # ---------- IMPOSTOS ----------
     if regime_tributario.startswith("Simples"):
         regime_nome = "Simples Nacional – Anexo III"
-        aliquota_total = 0.33
+        aliquota_total = 0.21
         impostos_base = {
             "IRPJ": 0.04,
             "CSLL": 0.035,
