@@ -210,3 +210,62 @@ def gerar_proposta_comercial_pdf(
     total_paginas = ctx["pagina"]
     _rodape_comercial(ctx, total_paginas)
     c.save()
+
+# =====================================================
+# RELATÓRIO TÉCNICO (VERSÃO CONGELADA)
+# =====================================================
+
+def gerar_pdf_tecnico(
+    caminho_pdf,
+    cargos,
+    clt_detalhado,
+    das_total,
+    lucro,
+    das_detalhado
+):
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+
+    c = canvas.Canvas(caminho_pdf, pagesize=A4)
+    largura, altura = A4
+
+    margem_esq = 2.5 * cm
+    margem_dir = 2.5 * cm
+    margem_sup = 3.0 * cm
+    margem_inf = 3.0 * cm
+
+    y = altura - margem_sup
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(margem_esq, y, "PROPOSTA TÉCNICA")
+    y -= 30
+
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(margem_esq, y, "Custos por Cargo")
+    y -= 20
+
+    c.setFont("Helvetica", 11)
+
+    for cargo in cargos:
+        linha = (
+            f"{cargo['Cargo']} | "
+            f"Quantidade: {cargo['Quantidade']} | "
+            f"Salário Base: R$ {cargo['Salário']:,.2f}"
+        )
+        c.drawString(margem_esq, y, linha)
+        y -= 16
+
+        if y < margem_inf:
+            c.showPage()
+            y = altura - margem_sup
+
+    y -= 20
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(
+        margem_esq,
+        y,
+        f"Lucro Mensal Total: R$ {lucro:,.2f}"
+    )
+
+    c.save()
