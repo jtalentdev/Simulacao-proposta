@@ -125,6 +125,7 @@ def _rodape(c, pagina, total):
 # =====================================================
 
 def _nova_pagina(ctx):
+    _rodape(ctx["c"], ctx["pagina"], ctx["pagina"])  # total provisório
     ctx["c"].showPage()
     ctx["pagina"] += 1
     _cabecalho_comercial(ctx)
@@ -198,33 +199,10 @@ def gerar_proposta_comercial_pdf(
 
     total_paginas = ctx["pagina"]
 
-    for pagina in range(1, total_paginas + 1):
-        c.showPage()
-
-    c = canvas.Canvas(caminho, pagesize=A4)
-    ctx = _novo_contexto(c, cliente, validade, titulo_proposta)
-
-    _cabecalho_comercial(ctx)
-    _desenhar_titulo(ctx, "Resumo Executivo")
-    _desenhar_texto_quebrado(ctx, resumo_exec)
-    _desenhar_titulo(ctx, "Resumo Comercial")
-    _desenhar_texto_quebrado(ctx, texto_comercial)
-    _desenhar_titulo(ctx, "Valores do Contrato")
-    _desenhar_texto_quebrado(
-        ctx,
-        f"Valor mensal do contrato: R$ {valor_mensal:,.2f}\n"
-        f"Valor anual do contrato (12 meses): R$ {(valor_mensal * 12):,.2f}"
-    )
-
-    total_paginas = ctx["pagina"]
-
-    for p in range(1, total_paginas + 1):
-        _rodape(c, p, total_paginas)
-        c.showPage()
-    
+    # Rodapé da última página
+    _rodape(ctx["c"], ctx["pagina"], ctx["pagina"])
     c.save()
-
-
+    
 # =====================================================
 # RELATÓRIO TÉCNICO (VERSÃO CONGELADA)
 # =====================================================
