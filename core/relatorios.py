@@ -216,10 +216,14 @@ def gerar_proposta_comercial_pdf(
         f"Valor anual do contrato (12 meses): R$ {(valor_mensal * 12):,.2f}"
     )
 
-    for p in range(1, ctx["pagina"] + 1):
-        _rodape(c, p, ctx["pagina"])
+    total_paginas = ctx["pagina"]
 
+    for p in range(1, total_paginas + 1):
+        _rodape(c, p, total_paginas)
+        c.showPage()
+    
     c.save()
+
 
 # =====================================================
 # RELATÓRIO TÉCNICO (VERSÃO CONGELADA)
