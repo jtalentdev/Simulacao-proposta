@@ -6,34 +6,9 @@ from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-class NumberedCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._saved_page_states = []
-
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_page_number(num_pages)
-            super().showPage()
-        super().save()
-
-    def draw_page_number(self, page_count):
-        self.setFont("Helvetica", 9)
-        self.drawRightString(
-            A4[0] - 2.5 * cm,
-            2.6 * cm,
-            f"{self.getPageNumber()} / {page_count}"
-        )
-
 
 # =====================================================
-# RELATÓRIO COMERCIAL (PLATYPUS - DEFINITIVO)
+# RELATÓRIO COMERCIAL (PLATYPUS)
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -56,8 +31,8 @@ def gerar_proposta_comercial_pdf(
         pagesize=A4,
         rightMargin=2.5 * cm,
         leftMargin=2.5 * cm,
-        topMargin=7.0 * cm,      # espaço reservado ao cabeçalho
-        bottomMargin=3.5 * cm,   # espaço reservado ao rodapé
+        topMargin=7.0 * cm,
+        bottomMargin=3.5 * cm,
     )
 
     styles = getSampleStyleSheet()
@@ -67,81 +42,75 @@ def gerar_proposta_comercial_pdf(
         parent=styles["Normal"],
         fontName="Helvetica",
         fontSize=11,
-        leading=16,          # leitura confortável
-        spaceAfter=10,       # espaço entre parágrafos
-        alignment=4          # justificado
+        leading=16,
+        spaceAfter=10,
+        alignment=4  # justificado
     )
-    
+
     style_titulo = ParagraphStyle(
         "Titulo",
         parent=styles["Normal"],
         fontName="Helvetica-Bold",
         fontSize=13,
         leading=16,
-        spaceBefore=18,      # respiro antes do título
-        spaceAfter=8         # respiro depois do título
+        spaceBefore=18,
+        spaceAfter=8
     )
-
 
     story = []
 
-    # -------------------------------------------------
-    # CORPO DO RELATÓRIO
-    # -------------------------------------------------
     # ==================================================
-# RESUMO EXECUTIVO
-# ==================================================
-story.append(Paragraph("Resumo Executivo", style_titulo))
+    # RESUMO EXECUTIVO
+    # ==================================================
+    story.append(Paragraph("Resumo Executivo", style_titulo))
 
-for paragrafo in resumo_exec.split("\n\n"):
-    story.append(Paragraph(paragrafo.strip(), style_texto))
+    for paragrafo in resumo_exec.split("\n\n"):
+        story.append(Paragraph(paragrafo.strip(), style_texto))
 
-story.append(Spacer(1, 14))
+    story.append(Spacer(1, 14))
 
+    # ==================================================
+    # RESUMO COMERCIAL
+    # ==================================================
+    story.append(Paragraph("Resumo Comercial", style_titulo))
 
-# ==================================================
-# RESUMO COMERCIAL
-# ==================================================
-story.append(Paragraph("Resumo Comercial", style_titulo))
+    for paragrafo in texto_comercial.split("\n\n"):
+        story.append(Paragraph(paragrafo.strip(), style_texto))
 
-for paragrafo in texto_comercial.split("\n\n"):
-    story.append(Paragraph(paragrafo.strip(), style_texto))
+    story.append(Spacer(1, 18))
 
-story.append(Spacer(1, 18))
-
-
-# ==================================================
-# VALORES DO CONTRATO
-# ==================================================
-story.append(Paragraph("Valores do Contrato", style_titulo))
+    # ==================================================
+    # VALORES DO CONTRATO
+    # ==================================================
+    story.append(Paragraph("Valores do Contrato", style_titulo))
 
     valor_mensal = float(
         valor_nf.replace("R$", "").replace(".", "").replace(",", ".")
     )
-    
+
     story.append(
         Paragraph(
             "O valor mensal estimado para a prestação dos serviços descritos nesta proposta é de:",
             style_texto
         )
     )
-    
+
     story.append(
         Paragraph(
             f"<b>R$ {valor_mensal:,.2f}</b> <font size=9>(valor mensal)</font>",
             style_texto
         )
     )
-    
+
     story.append(Spacer(1, 12))
-    
+
     story.append(
         Paragraph(
             "Considerando um período completo de 12 meses, o valor total anual do contrato será de:",
             style_texto
         )
     )
-    
+
     story.append(
         Paragraph(
             f"<b>R$ {(valor_mensal * 12):,.2f}</b> <font size=9>(valor anual)</font>",
@@ -149,23 +118,21 @@ story.append(Paragraph("Valores do Contrato", style_titulo))
         )
     )
 
-
-    # -------------------------------------------------
-    # CABEÇALHO E RODAPÉ (TODAS AS PÁGINAS)
-    # -------------------------------------------------
-    def desenhar_cabecalho_rodape(canvas, doc):
+    # ==================================================
+    # CABEÇALHO E RODAPÉ (CONGELADOS)
+    # ==================================================
+    def desenhar_cabecalho_rodape(canvas_obj, doc_obj):
         largura, altura = A4
-
         margem_esq = 2.5 * cm
         margem_dir = 2.5 * cm
         topo = altura - 2.5 * cm
 
-        # -------- LOGOMARCA --------
+        # Logo
         base_dir = os.path.dirname(os.path.abspath(__file__))
         logo_path = os.path.join(base_dir, "..", "assets", "logo.png")
 
         if os.path.exists(logo_path):
-            canvas.drawImage(
+            canvas_obj.drawImage(
                 ImageReader(logo_path),
                 margem_esq,
                 topo - 3.6 * cm,
@@ -175,76 +142,68 @@ story.append(Paragraph("Valores do Contrato", style_titulo))
                 mask="auto"
             )
 
-        # -------- TEXTO À DIREITA --------
+        # Título com quebra automática
+        from reportlab.platypus import Paragraph
         style_titulo_cab = ParagraphStyle(
-            "TituloCabecalho",
+            "TituloCab",
             fontName="Helvetica-Bold",
             fontSize=14,
             leading=16,
-            alignment=2  # alinhado à direita
+            alignment=2
         )
-        
-        p = Paragraph(titulo_proposta, style_titulo_cab)
-        
-        # largura disponível (não invade a logo)
+
         largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1.0 * cm)
-        
+        p = Paragraph(titulo_proposta, style_titulo_cab)
         w, h = p.wrap(largura_texto, 4 * cm)
-        
         p.drawOn(
-            canvas,
+            canvas_obj,
             largura - margem_dir - largura_texto,
             topo - 0.6 * cm - h
         )
 
-
-        # posição base abaixo do título
         y_base = topo - 0.6 * cm - h - 0.4 * cm
-        
-        canvas.setFont("Helvetica", 11)
-        canvas.drawRightString(
-            largura - margem_dir,
-            y_base,
-            cliente
-        )
-        
-        canvas.drawRightString(
-            largura - margem_dir,
-            y_base - 0.8 * cm,
-            f"Validade: {validade}"
-        )
 
+        canvas_obj.setFont("Helvetica", 11)
+        canvas_obj.drawRightString(largura - margem_dir, y_base, cliente)
+        canvas_obj.drawRightString(largura - margem_dir, y_base - 0.8 * cm, f"Validade: {validade}")
 
-        # -------- LINHA DO CABEÇALHO --------
+        # Linha cabeçalho
         y_linha = topo - 4.2 * cm
-        canvas.line(
-            margem_esq,
-            y_linha,
-            largura - margem_dir,
-            y_linha
-        )
+        canvas_obj.line(margem_esq, y_linha, largura - margem_dir, y_linha)
 
-        # -------- RODAPÉ --------
-        canvas.setFont("Helvetica", 9)
-        
-        canvas.line(
-            margem_esq,
-            2.3 * cm,
-            largura - margem_dir,
-            2.3 * cm
-        )
-
-        canvas.setFont("Helvetica", 8)
-        canvas.drawCentredString(
+        # Rodapé
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawCentredString(
             largura / 2,
             1.6 * cm,
             "J Talent Empreendimentos | Proposta Comercial | "
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
 
-    # -------------------------------------------------
-    # BUILD FINAL
-    # -------------------------------------------------
+    # Numeração correta X/Y
+    class NumberedCanvas(canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._saved_page_states = []
+
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self.setFont("Helvetica", 9)
+                self.drawRightString(
+                    A4[0] - 2.5 * cm,
+                    2.6 * cm,
+                    f"{self.getPageNumber()} / {num_pages}"
+                )
+                super().showPage()
+            super().save()
+
+    # Build final
     doc.build(
         story,
         onFirstPage=desenhar_cabecalho_rodape,
@@ -253,9 +212,8 @@ story.append(Paragraph("Valores do Contrato", style_titulo))
     )
 
 
-
 # =====================================================
-# RELATÓRIO TÉCNICO (MANTIDO CONGELADO)
+# RELATÓRIO TÉCNICO (CONGELADO)
 # =====================================================
 
 def gerar_pdf_tecnico(
@@ -266,13 +224,8 @@ def gerar_pdf_tecnico(
     lucro,
     das_detalhado
 ):
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import A4
-
     c = canvas.Canvas(caminho_pdf, pagesize=A4)
     largura, altura = A4
-
     c.setFont("Helvetica-Bold", 16)
     c.drawString(2.5 * cm, altura - 3 * cm, "PROPOSTA TÉCNICA")
-
     c.save()
