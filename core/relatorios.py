@@ -2,11 +2,11 @@ import os
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
-from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # =====================================================
 # CONFIGURAÇÕES
@@ -200,6 +200,14 @@ def _calcular_total_paginas(
 # RELATÓRIO COMERCIAL
 # =====================================================
 
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Frame,
+    PageTemplate
+)
+
 def gerar_proposta_comercial_pdf(
     caminho,
     cliente,
@@ -212,40 +220,159 @@ def gerar_proposta_comercial_pdf(
     _margem,
     _cargos,
 ):
-    # ---------- FASE 1: CALCULAR TOTAL ----------
-    total_paginas = _calcular_total_paginas(
-        resumo_exec,
-        texto_comercial,
-        valor_nf,
-        cliente,
-        validade,
-        titulo_proposta
+    # =====================================================
+    # CONFIGURAÇÃO DO DOCUMENTO
+    # =====================================================
+    doc = SimpleDocTemplate(
+        caminho,
+        pagesize=A4,
+        rightMargin=2.5 * cm,
+        leftMargin=2.5 * cm,
+        topMargin=6.5 * cm,
+        bottomMargin=3.5 * cm,
     )
 
-    # ---------- FASE 2: GERAR PDF REAL ----------
-    c = canvas.Canvas(caminho, pagesize=A4)
-    ctx = _novo_contexto(c, cliente, validade, titulo_proposta)
+    styles = getSampleStyleSheet()
 
-    _cabecalho_comercial(ctx)
-
-    _desenhar_titulo(ctx, "Resumo Executivo")
-    _desenhar_texto_quebrado(ctx, resumo_exec)
-
-    _desenhar_titulo(ctx, "Resumo Comercial")
-    _desenhar_texto_quebrado(ctx, texto_comercial)
-
-    valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
-
-    _desenhar_titulo(ctx, "Valores do Contrato")
-    _desenhar_texto_quebrado(
-        ctx,
-        f"Valor mensal do contrato: R$ {valor_mensal:,.2f}\n"
-        f"Valor anual do contrato (12 meses): R$ {(valor_mensal * 12):,.2f}"
+    style_normal = ParagraphStyle(
+        "TextoNormal",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=11,
+        leading=15,
+        alignment=4  # Justificado
     )
 
-    # Rodapé da última página
-    _rodape(c, ctx["pagina"], total_paginas)
-    c.save()
+    style_titulo = ParagraphStyle(
+        "TituloBloco",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        spaceAfter=12
+    )
+
+    story = []
+
+    # =====================================================
+    # CORPO DO RELATÓRIO
+    # =====================================================
+    story.append(Paragraph("Resumo Executivo", style_titulo))
+    story.append(Paragraph(resumo_exec, style_normal))
+    story.append(Spacer(1, 18))
+
+    story.append(Paragraph("Resumo Comercial", style_titulo))
+    story.append(Paragraph(texto_comercial, style_normal))
+    story.append(Spacer(1, 24))
+
+    # Valores
+    valor_mensal = float(
+        valor_nf.replace("R$", "").replace(".", "").replace(",", ".")
+    )
+
+    story.append(Paragraph("Valores do Contrato", style_titulo))
+    story.append(
+        Paragraph(
+            f"""
+            Valor mensal do contrato: <b>R$ {valor_mensal:,.2f}</b><br/>
+            Valor anual do contrato (12 meses): 
+            <b>R$ {(valor_mensal * 12):,.2f}</b>
+            """,
+            style_normal
+        )
+    )
+
+    # =====================================================
+    # CABEÇALHO E RODAPÉ
+    # =====================================================
+    def _desenhar_cabecalho_rodape(canvas, doc):
+        largura, altura = A4
+
+        # ---------- Cabeçalho ----------
+        y_top = altura - 2.5 * cm
+
+        # Logo
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        logo_path = os.path.join(base_dir, "..", "assets", "logo.png")
+
+        if os.path.exists(logo_path):
+            canvas.drawImage(
+                ImageReader(logo_path),
+                2.5 * cm,
+                y_top - 3.5 * cm,
+                width=3.2 * cm,
+                height=3.2 * cm,
+                preserveAspectRatio=True,
+                mask="auto"
+            )
+
+        canvas.setFont("Helvetica-Bold", 14)
+        canvas.drawRightString(
+            largura - 2.5 * cm,
+            y_top - 0.4 * cm,
+            titulo_proposta
+        )
+
+        canvas.setFont("Helvetica", 11)
+        canvas.drawRightString(
+            largura - 2.5 * cm,
+            y_top - 1.6 * cm,
+            cliente
+        )
+
+        canvas.drawRightString(
+            largura - 2.5 * cm,
+            y_top - 2.4 * cm,
+            f"Validade: {validade}"
+        )
+
+        canvas.line(
+            2.5 * cm,
+            y_top - 3.2 * cm,
+            largura - 2.5 * cm,
+            y_top - 3.2 * cm
+        )
+
+        # ---------- Rodapé ----------
+        canvas.setFont("Helvetica", 9)
+        canvas.drawRightString(
+            largura - 2.5 * cm,
+            2.3 * cm,
+            f"{canvas.getPageNumber()} / {doc.page}"
+        )
+
+        canvas.line(
+            2.5 * cm,
+            2.0 * cm,
+            largura - 2.5 * cm,
+            2.0 * cm
+        )
+
+        canvas.setFont("Helvetica", 8)
+        canvas.drawCentredString(
+            largura / 2,
+            1.4 * cm,
+            "J Talent Empreendimentos | Proposta Comercial | "
+            "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
+        )
+
+    template = PageTemplate(
+        id="PropostaComercial",
+        frames=[
+            Frame(
+                doc.leftMargin,
+                doc.bottomMargin,
+                doc.width,
+                doc.height,
+                id="normal"
+            )
+        ],
+        onFirstPage=_desenhar_cabecalho_rodape,
+        onLaterPages=_desenhar_cabecalho_rodape
+    )
+
+    doc.addPageTemplates([template])
+    doc.build(story)
+
     
 # =====================================================
 # RELATÓRIO TÉCNICO (VERSÃO CONGELADA)
