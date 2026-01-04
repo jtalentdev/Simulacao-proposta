@@ -182,8 +182,15 @@ def gerar_proposta_comercial_pdf(
     _margem,
     _cargos,
 ):
-    c = canvas.Canvas(caminho, pagesize=A4)
+    # ---------- PRIMEIRA PASSAGEM ----------
+    buffer = []
+
+    c = canvas.Canvas(None, pagesize=A4)
     ctx = _novo_contexto(c, cliente, validade, titulo_proposta)
+
+    def _finalizar_pagina():
+        buffer.append(c._pageState)
+        c.showPage()
 
     _cabecalho_comercial(ctx)
 
@@ -193,7 +200,9 @@ def gerar_proposta_comercial_pdf(
     _desenhar_titulo(ctx, "Resumo Comercial")
     _desenhar_texto_quebrado(ctx, texto_comercial)
 
-    valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
+    valor_mensal = float(
+        valor_nf.replace("R$", "").replace(".", "").replace(",", ".")
+    )
 
     _desenhar_titulo(ctx, "Valores do Contrato")
     _desenhar_texto_quebrado(
@@ -202,23 +211,19 @@ def gerar_proposta_comercial_pdf(
         f"Valor anual do contrato (12 meses): R$ {(valor_mensal * 12):,.2f}"
     )
 
-    total_paginas = ctx["pagina"]
+    buffer.append(c._pageState)
 
-    # Rodapé da última página
-    # registra última página
-    if "paginas" not in ctx:
-        ctx["paginas"] = []
-    
-    ctx["paginas"].append(ctx["pagina"])
-    total_paginas = len(ctx["paginas"])
-    
-    # reescreve rodapé corretamente em todas as páginas
-    for i, pagina in enumerate(ctx["paginas"], start=1):
-        ctx["c"].setPage(pagina)
-        _rodape(ctx["c"], pagina, total_paginas)
-    
+    total_paginas = len(buffer)
+
+    # ---------- SEGUNDA PASSAGEM (FINAL) ----------
+    c = canvas.Canvas(caminho, pagesize=A4)
+
+    for i, state in enumerate(buffer, start=1):
+        c._pageState = state
+        _rodape(c, i, total_paginas)
+        c.showPage()
+
     c.save()
-
     
 # =====================================================
 # RELATÓRIO TÉCNICO (VERSÃO CONGELADA)
