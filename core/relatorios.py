@@ -125,6 +125,10 @@ def _rodape(c, pagina, total):
 # =====================================================
 
 def _nova_pagina(ctx):
+    # garante inicialização do buffer de páginas
+    if "paginas" not in ctx:
+        ctx["paginas"] = []
+
     ctx["paginas"].append(ctx["pagina"])  # registra página
     _rodape(ctx["c"], ctx["pagina"], 0)   # total provisório
     ctx["c"].showPage()
@@ -202,8 +206,10 @@ def gerar_proposta_comercial_pdf(
 
     # Rodapé da última página
     # registra última página
-    ctx["paginas"].append(ctx["pagina"])
+    if "paginas" not in ctx:
+        ctx["paginas"] = []
     
+    ctx["paginas"].append(ctx["pagina"])
     total_paginas = len(ctx["paginas"])
     
     # reescreve rodapé corretamente em todas as páginas
