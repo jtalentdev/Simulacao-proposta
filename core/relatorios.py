@@ -166,6 +166,36 @@ def _desenhar_titulo(ctx, texto):
     p.drawOn(ctx["c"], MARGEM_ESQ, ctx["y"] - h)
     ctx["y"] -= h + 6
 
+def _calcular_total_paginas(
+    resumo_exec,
+    texto_comercial,
+    valor_nf,
+    cliente,
+    validade,
+    titulo_proposta
+):
+    c = canvas.Canvas(None, pagesize=A4)
+    ctx = _novo_contexto(c, cliente, validade, titulo_proposta)
+
+    _cabecalho_comercial(ctx)
+
+    _desenhar_titulo(ctx, "Resumo Executivo")
+    _desenhar_texto_quebrado(ctx, resumo_exec)
+
+    _desenhar_titulo(ctx, "Resumo Comercial")
+    _desenhar_texto_quebrado(ctx, texto_comercial)
+
+    valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
+
+    _desenhar_titulo(ctx, "Valores do Contrato")
+    _desenhar_texto_quebrado(
+        ctx,
+        f"Valor mensal do contrato: R$ {valor_mensal:,.2f}\n"
+        f"Valor anual do contrato (12 meses): R$ {(valor_mensal * 12):,.2f}"
+    )
+
+    return ctx["pagina"]
+
 # =====================================================
 # RELATÓRIO COMERCIAL
 # =====================================================
@@ -182,15 +212,19 @@ def gerar_proposta_comercial_pdf(
     _margem,
     _cargos,
 ):
-    # ---------- PRIMEIRA PASSAGEM ----------
-    buffer = []
+    # ---------- FASE 1: CALCULAR TOTAL ----------
+    total_paginas = _calcular_total_paginas(
+        resumo_exec,
+        texto_comercial,
+        valor_nf,
+        cliente,
+        validade,
+        titulo_proposta
+    )
 
-    c = canvas.Canvas(None, pagesize=A4)
+    # ---------- FASE 2: GERAR PDF REAL ----------
+    c = canvas.Canvas(caminho, pagesize=A4)
     ctx = _novo_contexto(c, cliente, validade, titulo_proposta)
-
-    def _finalizar_pagina():
-        buffer.append(c._pageState)
-        c.showPage()
 
     _cabecalho_comercial(ctx)
 
@@ -200,9 +234,7 @@ def gerar_proposta_comercial_pdf(
     _desenhar_titulo(ctx, "Resumo Comercial")
     _desenhar_texto_quebrado(ctx, texto_comercial)
 
-    valor_mensal = float(
-        valor_nf.replace("R$", "").replace(".", "").replace(",", ".")
-    )
+    valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
 
     _desenhar_titulo(ctx, "Valores do Contrato")
     _desenhar_texto_quebrado(
@@ -211,18 +243,8 @@ def gerar_proposta_comercial_pdf(
         f"Valor anual do contrato (12 meses): R$ {(valor_mensal * 12):,.2f}"
     )
 
-    buffer.append(c._pageState)
-
-    total_paginas = len(buffer)
-
-    # ---------- SEGUNDA PASSAGEM (FINAL) ----------
-    c = canvas.Canvas(caminho, pagesize=A4)
-
-    for i, state in enumerate(buffer, start=1):
-        c._pageState = state
-        _rodape(c, i, total_paginas)
-        c.showPage()
-
+    # Rodapé da última página
+    _rodape(c, ctx["pagina"], total_paginas)
     c.save()
     
 # =====================================================
