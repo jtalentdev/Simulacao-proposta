@@ -156,18 +156,22 @@ def gerar_proposta_comercial_pdf(
         )
 
 
+        # posição base abaixo do título
+        y_base = topo - 0.6 * cm - h - 0.4 * cm
+        
         canvas.setFont("Helvetica", 11)
         canvas.drawRightString(
             largura - margem_dir,
-            topo - 1.8 * cm,
+            y_base,
             cliente
         )
-
+        
         canvas.drawRightString(
             largura - margem_dir,
-            topo - 2.6 * cm,
+            y_base - 0.8 * cm,
             f"Validade: {validade}"
         )
+
 
         # -------- LINHA DO CABEÇALHO --------
         y_linha = topo - 4.2 * cm
