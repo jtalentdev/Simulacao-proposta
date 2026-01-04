@@ -67,46 +67,88 @@ def gerar_proposta_comercial_pdf(
         parent=styles["Normal"],
         fontName="Helvetica",
         fontSize=11,
-        leading=15,
-        alignment=4  # justificado
+        leading=16,          # leitura confortável
+        spaceAfter=10,       # espaço entre parágrafos
+        alignment=4          # justificado
     )
-
+    
     style_titulo = ParagraphStyle(
         "Titulo",
-        parent=styles["Heading2"],
+        parent=styles["Normal"],
         fontName="Helvetica-Bold",
-        fontSize=12,
-        spaceAfter=10
+        fontSize=13,
+        leading=16,
+        spaceBefore=18,      # respiro antes do título
+        spaceAfter=8         # respiro depois do título
     )
+
 
     story = []
 
     # -------------------------------------------------
     # CORPO DO RELATÓRIO
     # -------------------------------------------------
-    story.append(Paragraph("Resumo Executivo", style_titulo))
-    story.append(Paragraph(resumo_exec, style_texto))
-    story.append(Spacer(1, 18))
+    # ==================================================
+# RESUMO EXECUTIVO
+# ==================================================
+story.append(Paragraph("Resumo Executivo", style_titulo))
 
-    story.append(Paragraph("Resumo Comercial", style_titulo))
-    story.append(Paragraph(texto_comercial, style_texto))
-    story.append(Spacer(1, 24))
+for paragrafo in resumo_exec.split("\n\n"):
+    story.append(Paragraph(paragrafo.strip(), style_texto))
+
+story.append(Spacer(1, 14))
+
+
+# ==================================================
+# RESUMO COMERCIAL
+# ==================================================
+story.append(Paragraph("Resumo Comercial", style_titulo))
+
+for paragrafo in texto_comercial.split("\n\n"):
+    story.append(Paragraph(paragrafo.strip(), style_texto))
+
+story.append(Spacer(1, 18))
+
+
+# ==================================================
+# VALORES DO CONTRATO
+# ==================================================
+story.append(Paragraph("Valores do Contrato", style_titulo))
 
     valor_mensal = float(
         valor_nf.replace("R$", "").replace(".", "").replace(",", ".")
     )
-
-    story.append(Paragraph("Valores do Contrato", style_titulo))
+    
     story.append(
         Paragraph(
-            f"""
-            Valor mensal do contrato: <b>R$ {valor_mensal:,.2f}</b><br/>
-            Valor anual do contrato (12 meses):
-            <b>R$ {(valor_mensal * 12):,.2f}</b>
-            """,
+            "O valor mensal estimado para a prestação dos serviços descritos nesta proposta é de:",
             style_texto
         )
     )
+    
+    story.append(
+        Paragraph(
+            f"<b>R$ {valor_mensal:,.2f}</b> <font size=9>(valor mensal)</font>",
+            style_texto
+        )
+    )
+    
+    story.append(Spacer(1, 12))
+    
+    story.append(
+        Paragraph(
+            "Considerando um período completo de 12 meses, o valor total anual do contrato será de:",
+            style_texto
+        )
+    )
+    
+    story.append(
+        Paragraph(
+            f"<b>R$ {(valor_mensal * 12):,.2f}</b> <font size=9>(valor anual)</font>",
+            style_texto
+        )
+    )
+
 
     # -------------------------------------------------
     # CABEÇALHO E RODAPÉ (TODAS AS PÁGINAS)
