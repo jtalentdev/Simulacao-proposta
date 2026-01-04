@@ -1,11 +1,5 @@
 import os
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Frame,
-    PageTemplate
-)
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
@@ -13,7 +7,7 @@ from reportlab.lib.utils import ImageReader
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL – VERSÃO RECONSTRUÍDA
+# RELATÓRIO COMERCIAL (PLATYPUS - DEFINITIVO)
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -36,8 +30,8 @@ def gerar_proposta_comercial_pdf(
         pagesize=A4,
         rightMargin=2.5 * cm,
         leftMargin=2.5 * cm,
-        topMargin=6.8 * cm,      # espaço reservado para cabeçalho
-        bottomMargin=3.2 * cm,   # espaço reservado para rodapé
+        topMargin=7.0 * cm,      # espaço reservado ao cabeçalho
+        bottomMargin=3.5 * cm,   # espaço reservado ao rodapé
     )
 
     styles = getSampleStyleSheet()
@@ -89,7 +83,7 @@ def gerar_proposta_comercial_pdf(
     )
 
     # -------------------------------------------------
-    # CABEÇALHO E RODAPÉ
+    # CABEÇALHO E RODAPÉ (TODAS AS PÁGINAS)
     # -------------------------------------------------
     def desenhar_cabecalho_rodape(canvas, doc):
         largura, altura = A4
@@ -98,7 +92,7 @@ def gerar_proposta_comercial_pdf(
         margem_dir = 2.5 * cm
         topo = altura - 2.5 * cm
 
-        # -------- LOGO --------
+        # -------- LOGOMARCA --------
         base_dir = os.path.dirname(os.path.abspath(__file__))
         logo_path = os.path.join(base_dir, "..", "assets", "logo.png")
 
@@ -106,7 +100,7 @@ def gerar_proposta_comercial_pdf(
             canvas.drawImage(
                 ImageReader(logo_path),
                 margem_esq,
-                topo - 3.8 * cm,
+                topo - 3.6 * cm,
                 width=3.2 * cm,
                 height=3.2 * cm,
                 preserveAspectRatio=True,
@@ -147,48 +141,37 @@ def gerar_proposta_comercial_pdf(
         canvas.setFont("Helvetica", 9)
         canvas.drawRightString(
             largura - margem_dir,
-            2.4 * cm,
+            2.6 * cm,
             f"{canvas.getPageNumber()} / {doc.page}"
         )
 
         canvas.line(
             margem_esq,
-            2.1 * cm,
+            2.3 * cm,
             largura - margem_dir,
-            2.1 * cm
+            2.3 * cm
         )
 
         canvas.setFont("Helvetica", 8)
         canvas.drawCentredString(
             largura / 2,
-            1.5 * cm,
+            1.6 * cm,
             "J Talent Empreendimentos | Proposta Comercial | "
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
 
     # -------------------------------------------------
-    # TEMPLATE DE PÁGINA
+    # BUILD FINAL
     # -------------------------------------------------
-    frame = Frame(
-        doc.leftMargin,
-        doc.bottomMargin,
-        doc.width,
-        doc.height,
-        id="corpo"
+    doc.build(
+        story,
+        onFirstPage=desenhar_cabecalho_rodape,
+        onLaterPages=desenhar_cabecalho_rodape
     )
-
-    template = PageTemplate(
-        id="PropostaComercial",
-        frames=[frame],
-        onPage=desenhar_cabecalho_rodape
-    )
-
-    doc.addPageTemplates([template])
-    doc.build(story)
 
 
 # =====================================================
-# RELATÓRIO TÉCNICO (MANTIDO CONGELADO / SIMPLES)
+# RELATÓRIO TÉCNICO (MANTIDO CONGELADO)
 # =====================================================
 
 def gerar_pdf_tecnico(
