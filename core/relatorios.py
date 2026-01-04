@@ -1,4 +1,5 @@
 import os
+import re
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
@@ -8,7 +9,25 @@ from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL (PLATYPUS)
+# UTILITÁRIO – INTERPRETAR **SUBTÍTULOS** DA IA
+# =====================================================
+
+def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
+    blocos = texto.split("\n\n")
+
+    for bloco in blocos:
+        bloco = bloco.strip()
+
+        # Subtítulo em Markdown (**Texto**)
+        if re.fullmatch(r"\*\*(.+?)\*\*", bloco):
+            titulo = bloco.replace("**", "")
+            story.append(Paragraph(titulo, style_subtitulo))
+        else:
+            story.append(Paragraph(bloco, style_texto))
+
+
+# =====================================================
+# RELATÓRIO COMERCIAL (PLATYPUS – DEFINITIVO)
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -37,6 +56,7 @@ def gerar_proposta_comercial_pdf(
 
     styles = getSampleStyleSheet()
 
+    # Texto normal
     style_texto = ParagraphStyle(
         "Texto",
         parent=styles["Normal"],
@@ -47,6 +67,7 @@ def gerar_proposta_comercial_pdf(
         alignment=4  # justificado
     )
 
+    # Título de seção
     style_titulo = ParagraphStyle(
         "Titulo",
         parent=styles["Normal"],
@@ -57,15 +78,29 @@ def gerar_proposta_comercial_pdf(
         spaceAfter=8
     )
 
+    # Subtítulo interno (vindo da IA com **)
+    style_subtitulo = ParagraphStyle(
+        "Subtitulo",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        leading=15,
+        spaceBefore=14,
+        spaceAfter=6
+    )
+
     story = []
 
     # ==================================================
     # RESUMO EXECUTIVO
     # ==================================================
     story.append(Paragraph("Resumo Executivo", style_titulo))
-
-    for paragrafo in resumo_exec.split("\n\n"):
-        story.append(Paragraph(paragrafo.strip(), style_texto))
+    renderizar_texto_com_subtitulos(
+        resumo_exec,
+        story,
+        style_texto,
+        style_subtitulo
+    )
 
     story.append(Spacer(1, 14))
 
@@ -73,9 +108,12 @@ def gerar_proposta_comercial_pdf(
     # RESUMO COMERCIAL
     # ==================================================
     story.append(Paragraph("Resumo Comercial", style_titulo))
-
-    for paragrafo in texto_comercial.split("\n\n"):
-        story.append(Paragraph(paragrafo.strip(), style_texto))
+    renderizar_texto_com_subtitulos(
+        texto_comercial,
+        story,
+        style_texto,
+        style_subtitulo
+    )
 
     story.append(Spacer(1, 18))
 
@@ -127,7 +165,7 @@ def gerar_proposta_comercial_pdf(
         margem_dir = 2.5 * cm
         topo = altura - 2.5 * cm
 
-        # Logo
+        # Logomarca
         base_dir = os.path.dirname(os.path.abspath(__file__))
         logo_path = os.path.join(base_dir, "..", "assets", "logo.png")
 
@@ -142,14 +180,13 @@ def gerar_proposta_comercial_pdf(
                 mask="auto"
             )
 
-        # Título com quebra automática
-        from reportlab.platypus import Paragraph
+        # Título da proposta (com quebra automática)
         style_titulo_cab = ParagraphStyle(
             "TituloCab",
             fontName="Helvetica-Bold",
             fontSize=14,
             leading=16,
-            alignment=2
+            alignment=2  # direita
         )
 
         largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1.0 * cm)
@@ -161,17 +198,22 @@ def gerar_proposta_comercial_pdf(
             topo - 0.6 * cm - h
         )
 
+        # Cliente e validade posicionados dinamicamente
         y_base = topo - 0.6 * cm - h - 0.4 * cm
 
         canvas_obj.setFont("Helvetica", 11)
         canvas_obj.drawRightString(largura - margem_dir, y_base, cliente)
-        canvas_obj.drawRightString(largura - margem_dir, y_base - 0.8 * cm, f"Validade: {validade}")
+        canvas_obj.drawRightString(
+            largura - margem_dir,
+            y_base - 0.8 * cm,
+            f"Validade: {validade}"
+        )
 
-        # Linha cabeçalho
+        # Linha do cabeçalho
         y_linha = topo - 4.2 * cm
         canvas_obj.line(margem_esq, y_linha, largura - margem_dir, y_linha)
 
-        # Rodapé
+        # Rodapé institucional
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.drawCentredString(
             largura / 2,
@@ -180,7 +222,7 @@ def gerar_proposta_comercial_pdf(
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
 
-    # Numeração correta X/Y
+    # Numeração correta X / Y
     class NumberedCanvas(canvas.Canvas):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
