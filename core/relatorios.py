@@ -366,9 +366,9 @@ def gerar_proposta_comercial_pdf(
                 id="normal"
             )
         ],
-        onFirstPage=_desenhar_cabecalho_rodape,
-        onLaterPages=_desenhar_cabecalho_rodape
+        onPage=_desenhar_cabecalho_rodape
     )
+
 
     doc.addPageTemplates([template])
     doc.build(story)
