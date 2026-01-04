@@ -5,7 +5,6 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 
-
 # =====================================================
 # RELATÓRIO COMERCIAL (PLATYPUS - DEFINITIVO)
 # =====================================================
@@ -108,12 +107,27 @@ def gerar_proposta_comercial_pdf(
             )
 
         # -------- TEXTO À DIREITA --------
-        canvas.setFont("Helvetica-Bold", 14)
-        canvas.drawRightString(
-            largura - margem_dir,
-            topo - 0.6 * cm,
-            titulo_proposta
+        style_titulo_cab = ParagraphStyle(
+            "TituloCabecalho",
+            fontName="Helvetica-Bold",
+            fontSize=14,
+            leading=16,
+            alignment=2  # alinhado à direita
         )
+        
+        p = Paragraph(titulo_proposta, style_titulo_cab)
+        
+        # largura disponível (não invade a logo)
+        largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1.0 * cm)
+        
+        w, h = p.wrap(largura_texto, 4 * cm)
+        
+        p.drawOn(
+            canvas,
+            largura - margem_dir - largura_texto,
+            topo - 0.6 * cm - h
+        )
+
 
         canvas.setFont("Helvetica", 11)
         canvas.drawRightString(
