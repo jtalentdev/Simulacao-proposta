@@ -1,15 +1,18 @@
 import os
 import re
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
+from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# UTILITÁRIO – PARSER DE TEXTO DA IA (ROBUSTO)
+# UTILITÁRIO – PARSER DE TEXTO DA IA (ROBUSTO E FIEL)
 # =====================================================
 
 def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
@@ -30,14 +33,11 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
             flush()
             continue
 
-        # **Título**
-        m = re.fullmatch(r"\*\*(.+?)\*\*", linha.strip())
-        if m:
+        if re.fullmatch(r"\*\*(.+?)\*\*", linha.strip()):
             flush()
-            story.append(Paragraph(m.group(1), style_subtitulo))
+            story.append(Paragraph(linha.strip()[2:-2], style_subtitulo))
             continue
 
-        # **Título:** texto
         m = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if m:
             flush()
@@ -45,7 +45,6 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
             story.append(Paragraph(m.group(2), style_texto))
             continue
 
-        # - **Título:** texto
         m = re.match(r"[-•]\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if m:
             flush()
@@ -54,7 +53,6 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
             )
             continue
 
-        # 1. **Título:** texto
         m = re.match(r"(\d+\.?)\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if m:
             flush()
@@ -69,7 +67,7 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL (FINAL)
+# RELATÓRIO COMERCIAL – FINAL
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -82,13 +80,13 @@ def gerar_proposta_comercial_pdf(
     validade,
     valor_nf,
     _margem,
-    _cargos,
+    cargos,  # <-- USADO AQUI
 ):
     doc = SimpleDocTemplate(
         caminho,
         pagesize=A4,
-        leftMargin=2.5 * cm,
         rightMargin=2.5 * cm,
+        leftMargin=2.5 * cm,
         topMargin=7.0 * cm,
         bottomMargin=3.5 * cm,
     )
@@ -96,44 +94,64 @@ def gerar_proposta_comercial_pdf(
     styles = getSampleStyleSheet()
 
     style_texto = ParagraphStyle(
-        "Texto",
-        parent=styles["Normal"],
-        fontSize=11,
-        leading=16,
-        spaceAfter=10,
-        alignment=4
+        "Texto", parent=styles["Normal"],
+        fontSize=11, leading=16, spaceAfter=10, alignment=4
     )
 
     style_titulo = ParagraphStyle(
-        "Titulo",
-        parent=styles["Normal"],
-        fontSize=13,
-        fontName="Helvetica-Bold",
-        spaceBefore=18,
-        spaceAfter=8
+        "Titulo", parent=styles["Normal"],
+        fontSize=13, fontName="Helvetica-Bold",
+        spaceBefore=18, spaceAfter=10
     )
 
     style_subtitulo = ParagraphStyle(
-        "Subtitulo",
-        parent=styles["Normal"],
-        fontSize=12,
-        fontName="Helvetica-Bold",
-        spaceBefore=14,
-        spaceAfter=6
+        "Subtitulo", parent=styles["Normal"],
+        fontSize=12, fontName="Helvetica-Bold",
+        spaceBefore=14, spaceAfter=6
     )
 
     story = []
 
+    # ---------- RESUMO EXECUTIVO ----------
     story.append(Paragraph("Resumo Executivo", style_titulo))
     renderizar_texto_com_subtitulos(resumo_exec, story, style_texto, style_subtitulo)
     story.append(Spacer(1, 14))
 
+    # ---------- RESUMO COMERCIAL ----------
     story.append(Paragraph("Resumo Comercial", style_titulo))
     renderizar_texto_com_subtitulos(texto_comercial, story, style_texto, style_subtitulo)
     story.append(Spacer(1, 18))
 
+    # ---------- VALORES DO CONTRATO ----------
     story.append(Paragraph("Valores do Contrato", style_titulo))
 
+    # TABELA DE CARGOS
+    tabela = [
+        ["Cargo", "Quantidade", "Custo unitário (R$)", "Custo total (R$)"]
+    ]
+
+    for c in cargos:
+        tabela.append([
+            c["cargo"],
+            c["quantidade"],
+            f'R$ {c["custo_unitario"]:,.2f}',
+            f'R$ {c["custo_total"]:,.2f}'
+        ])
+
+    table = Table(tabela, colWidths=[6*cm, 3*cm, 4*cm, 4*cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("ALIGN", (1,1), (-1,-1), "RIGHT"),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0,0), (-1,0), 8),
+        ("TOPPADDING", (0,0), (-1,0), 8),
+    ]))
+
+    story.append(table)
+    story.append(Spacer(1, 18))
+
+    # VALORES
     valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
     story.append(Paragraph(
         "O valor mensal estimado para a prestação dos serviços descritos nesta proposta é de:",
@@ -153,6 +171,20 @@ def gerar_proposta_comercial_pdf(
         style_texto
     ))
 
+    story.append(Spacer(1, 24))
+
+    # ASSINATURA FINAL
+    story.append(Paragraph(
+        "Atenciosamente,<br/><br/>"
+        "Jhonny Souza<br/>"
+        "Diretor<br/>"
+        "J Talent Empreendimentos<br/>"
+        "+55 38 98422 4399<br/>"
+        "contato@jtalent.com.br",
+        style_texto
+    ))
+
+    # ---------- CABEÇALHO / RODAPÉ (CONGELADOS) ----------
     def cabecalho_rodape(c, d):
         largura, altura = A4
         margem = 2.5 * cm
@@ -162,12 +194,9 @@ def gerar_proposta_comercial_pdf(
         if os.path.exists(logo):
             c.drawImage(
                 ImageReader(logo),
-                margem,
-                topo - 3.6 * cm,
-                width=3.2 * cm,
-                height=3.2 * cm,
-                preserveAspectRatio=True,
-                mask="auto"
+                margem, topo - 3.6 * cm,
+                width=3.2 * cm, height=3.2 * cm,
+                preserveAspectRatio=True, mask="auto"
             )
 
         style = ParagraphStyle("cab", fontSize=14, fontName="Helvetica-Bold", alignment=2)
@@ -185,8 +214,7 @@ def gerar_proposta_comercial_pdf(
 
         c.setFont("Helvetica", 8)
         c.drawCentredString(
-            largura / 2,
-            1.6 * cm,
+            largura / 2, 1.6 * cm,
             "J Talent Empreendimentos | Proposta Comercial | "
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
@@ -218,7 +246,7 @@ def gerar_proposta_comercial_pdf(
 
 
 # =====================================================
-# RELATÓRIO TÉCNICO (PLACEHOLDER CONGELADO)
+# RELATÓRIO TÉCNICO (CONGELADO)
 # =====================================================
 
 def gerar_pdf_tecnico(
