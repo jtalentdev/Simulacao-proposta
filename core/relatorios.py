@@ -9,7 +9,7 @@ from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# UTILITÁRIO – INTERPRETAR **SUBTÍTULOS** DA IA
+# UTILITÁRIO – INTERPRETAR SUBTÍTULOS DA IA (**)
 # =====================================================
 
 def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
@@ -20,12 +20,24 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
         if not bloco:
             continue
 
-        # Subtítulo Markdown (**Texto**)
-        if re.fullmatch(r"\*\*(.+?)\*\*", bloco):
-            titulo = bloco.replace("**", "")
+        # Caso 1: **Título**
+        match_titulo = re.fullmatch(r"\*\*(.+?)\*\*", bloco)
+        if match_titulo:
+            story.append(Paragraph(match_titulo.group(1), style_subtitulo))
+            continue
+
+        # Caso 2: **Título:** texto contínuo
+        match_inline = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", bloco)
+        if match_inline:
+            titulo = match_inline.group(1)
+            texto_restante = match_inline.group(2)
+
             story.append(Paragraph(titulo, style_subtitulo))
-        else:
-            story.append(Paragraph(bloco, style_texto))
+            story.append(Paragraph(texto_restante, style_texto))
+            continue
+
+        # Caso normal
+        story.append(Paragraph(bloco, style_texto))
 
 
 # =====================================================
@@ -44,21 +56,17 @@ def gerar_proposta_comercial_pdf(
     _margem,
     _cargos,
 ):
-    # -------------------------------------------------
-    # CONFIGURAÇÃO DO DOCUMENTO
-    # -------------------------------------------------
     doc = SimpleDocTemplate(
         caminho,
         pagesize=A4,
         rightMargin=2.5 * cm,
         leftMargin=2.5 * cm,
-        topMargin=7.0 * cm,      # espaço reservado ao cabeçalho
-        bottomMargin=3.5 * cm,   # espaço reservado ao rodapé
+        topMargin=7.0 * cm,
+        bottomMargin=3.5 * cm,
     )
 
     styles = getSampleStyleSheet()
 
-    # Texto normal
     style_texto = ParagraphStyle(
         "Texto",
         parent=styles["Normal"],
@@ -66,10 +74,9 @@ def gerar_proposta_comercial_pdf(
         fontSize=11,
         leading=16,
         spaceAfter=10,
-        alignment=4  # justificado
+        alignment=4
     )
 
-    # Título de seção
     style_titulo = ParagraphStyle(
         "Titulo",
         parent=styles["Normal"],
@@ -80,7 +87,6 @@ def gerar_proposta_comercial_pdf(
         spaceAfter=8
     )
 
-    # Subtítulo interno (IA com **)
     style_subtitulo = ParagraphStyle(
         "Subtitulo",
         parent=styles["Normal"],
@@ -93,35 +99,21 @@ def gerar_proposta_comercial_pdf(
 
     story = []
 
-    # ==================================================
-    # RESUMO EXECUTIVO
-    # ==================================================
+    # ---------------- RESUMO EXECUTIVO ----------------
     story.append(Paragraph("Resumo Executivo", style_titulo))
     renderizar_texto_com_subtitulos(
-        resumo_exec,
-        story,
-        style_texto,
-        style_subtitulo
+        resumo_exec, story, style_texto, style_subtitulo
     )
-
     story.append(Spacer(1, 14))
 
-    # ==================================================
-    # RESUMO COMERCIAL
-    # ==================================================
+    # ---------------- RESUMO COMERCIAL ----------------
     story.append(Paragraph("Resumo Comercial", style_titulo))
     renderizar_texto_com_subtitulos(
-        texto_comercial,
-        story,
-        style_texto,
-        style_subtitulo
+        texto_comercial, story, style_texto, style_subtitulo
     )
-
     story.append(Spacer(1, 18))
 
-    # ==================================================
-    # VALORES DO CONTRATO
-    # ==================================================
+    # ---------------- VALORES ----------------
     story.append(Paragraph("Valores do Contrato", style_titulo))
 
     valor_mensal = float(
@@ -158,16 +150,13 @@ def gerar_proposta_comercial_pdf(
         )
     )
 
-    # ==================================================
-    # CABEÇALHO E RODAPÉ (CONGELADOS)
-    # ==================================================
+    # ---------------- CABEÇALHO / RODAPÉ ----------------
     def desenhar_cabecalho_rodape(canvas_obj, doc_obj):
         largura, altura = A4
         margem_esq = 2.5 * cm
         margem_dir = 2.5 * cm
         topo = altura - 2.5 * cm
 
-        # Logomarca
         base_dir = os.path.dirname(os.path.abspath(__file__))
         logo_path = os.path.join(base_dir, "..", "assets", "logo.png")
 
@@ -182,40 +171,29 @@ def gerar_proposta_comercial_pdf(
                 mask="auto"
             )
 
-        # Título da proposta (com quebra automática)
-        style_titulo_cab = ParagraphStyle(
-            "TituloCab",
+        style_cab = ParagraphStyle(
+            "CabTitulo",
             fontName="Helvetica-Bold",
             fontSize=14,
             leading=16,
-            alignment=2  # direita
+            alignment=2
         )
 
         largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1.0 * cm)
-        p = Paragraph(titulo_proposta, style_titulo_cab)
+        p = Paragraph(titulo_proposta, style_cab)
         _, h = p.wrap(largura_texto, 4 * cm)
-        p.drawOn(
-            canvas_obj,
-            largura - margem_dir - largura_texto,
-            topo - 0.6 * cm - h
-        )
+        p.drawOn(canvas_obj, largura - margem_dir - largura_texto, topo - 0.6 * cm - h)
 
-        # Cliente e validade abaixo do título
         y_base = topo - 0.6 * cm - h - 0.4 * cm
-
         canvas_obj.setFont("Helvetica", 11)
         canvas_obj.drawRightString(largura - margem_dir, y_base, cliente)
         canvas_obj.drawRightString(
-            largura - margem_dir,
-            y_base - 0.8 * cm,
-            f"Validade: {validade}"
+            largura - margem_dir, y_base - 0.8 * cm, f"Validade: {validade}"
         )
 
-        # Linha separadora do cabeçalho
         y_linha = topo - 4.2 * cm
         canvas_obj.line(margem_esq, y_linha, largura - margem_dir, y_linha)
 
-        # Rodapé institucional (texto)
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.drawCentredString(
             largura / 2,
@@ -224,9 +202,6 @@ def gerar_proposta_comercial_pdf(
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
 
-    # ==================================================
-    # CANVAS COM NUMERAÇÃO X / Y CORRETA
-    # ==================================================
     class NumberedCanvas(canvas.Canvas):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -237,21 +212,18 @@ def gerar_proposta_comercial_pdf(
             self._startPage()
 
         def save(self):
-            total_paginas = len(self._saved_page_states)
+            total = len(self._saved_page_states)
             for state in self._saved_page_states:
                 self.__dict__.update(state)
                 self.setFont("Helvetica", 9)
                 self.drawRightString(
                     A4[0] - 2.5 * cm,
                     2.6 * cm,
-                    f"{self.getPageNumber()} / {total_paginas}"
+                    f"{self.getPageNumber()} / {total}"
                 )
                 super().showPage()
             super().save()
 
-    # -------------------------------------------------
-    # BUILD FINAL
-    # -------------------------------------------------
     doc.build(
         story,
         onFirstPage=desenhar_cabecalho_rodape,
