@@ -1,261 +1,122 @@
 import streamlit as st
 import pandas as pd
 
-# ================= AUTH =================
 from auth.auth import login
-
-# ================= CORE =================
 from core.clt import calcular_clt
+from core.simples import detalhar_das
 from core.precificacao import precificar
-
-# ================= IA =================
+from core.relatorios import gerar_proposta_comercial_pdf
 from core.ia_textos import gerar_resumo_executivo, gerar_texto_comercial
 
-# ================= RELATÓRIOS =================
-from core.relatorios import gerar_proposta_comercial_pdf, gerar_pdf_tecnico
 
-# ================= CONFIG =================
+# =====================================================
+# CONFIGURAÇÃO INICIAL
+# =====================================================
+
 st.set_page_config(
     page_title="Simulador de Precificação CLT",
     layout="wide"
 )
 
-# ================= LOGIN =================
-login()
-if not st.session_state.get("logged", False):
+if "logged" not in st.session_state:
+    st.session_state.logged = False
+
+if not st.session_state.logged:
+    login()
     st.stop()
 
-st.title("📊 Simulador de Precificação CLT")
 
 # =====================================================
-# UTIL – PREVIEW (REGRA A)
+# CABEÇALHO
 # =====================================================
-def render_texto_preview(texto: str):
-    for linha in texto.split("\n"):
-        linha = linha.strip()
-        if not linha:
-            st.markdown("")
-        elif linha.startswith("**") and linha.endswith("**"):
-            st.markdown(f"### {linha.replace('**', '').strip()}")
-        else:
-            st.markdown(linha)
+
+st.title("📊 Simulador de Precificação CLT – Proposta Comercial")
+
 
 # =====================================================
-# 1️⃣ IDENTIFICAÇÃO
+# DADOS BÁSICOS DA PROPOSTA
 # =====================================================
-st.header("1️⃣ Identificação da Proposta")
 
-c1, c2, c3 = st.columns(3)
-cliente = c1.text_input("Cliente")
-titulo_proposta = c2.text_input(
-    "Título da proposta",
-    "Proposta Comercial: Fornecimento de Mão de Obra Especializada"
-)
-validade = c3.text_input("Validade", "30 dias")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    cliente = st.text_input("Cliente")
+
+with col2:
+    titulo_proposta = st.text_input(
+        "Título da Proposta",
+        value="Proposta Comercial para Fornecimento de Mão de Obra Especializada"
+    )
+
+with col3:
+    validade = st.date_input("Validade da Proposta")
+
 
 # =====================================================
-# 2️⃣ CARGOS
+# PARÂMETROS GERAIS
 # =====================================================
-st.header("2️⃣ Estrutura de Cargos")
+
+st.subheader("⚙️ Parâmetros Gerais")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    vale_refeicao = st.number_input(
+        "Vale Refeição Mensal (R$)",
+        min_value=0.0,
+        value=600.0,
+        step=50.0
+    )
+
+with col2:
+    margem_lucro = st.slider(
+        "Margem de Lucro (%)",
+        min_value=5,
+        max_value=50,
+        value=20
+    ) / 100
+
+
+# =====================================================
+# CARGOS
+# =====================================================
+
+st.subheader("👥 Cargos")
 
 if "cargos" not in st.session_state:
     st.session_state.cargos = []
 
-with st.expander("Adicionar cargo"):
-    a, b, c = st.columns(3)
-    cargo_nome = a.text_input("Cargo")
-    salario = b.number_input("Salário (R$)", min_value=0.0, step=100.0)
-    qtd = c.number_input("Quantidade", min_value=1, step=1)
+with st.form("form_cargo"):
+    col1, col2, col3 = st.columns(3)
 
-    if st.button("Adicionar cargo"):
+    with col1:
+        nome_cargo = st.text_input("Cargo")
+
+    with col2:
+        salario = st.number_input("Salário (R$)", min_value=0.0, step=500.0)
+
+    with col3:
+        quantidade = st.number_input("Quantidade", min_value=1, step=1)
+
+    if st.form_submit_button("Adicionar Cargo"):
         st.session_state.cargos.append({
-            "Cargo": cargo_nome,
+            "Cargo": nome_cargo,
             "Salário": salario,
-            "Quantidade": qtd
+            "Quantidade": quantidade
         })
-        st.rerun()
 
 if st.session_state.cargos:
-    st.subheader("Cargos adicionados")
+    st.dataframe(pd.DataFrame(st.session_state.cargos), use_container_width=True)
 
-    for idx, cargo in enumerate(st.session_state.cargos):
-        col1, col2, col3, col4 = st.columns([4, 2, 2, 1])
-
-        col1.write(cargo["Cargo"])
-        col2.write(f"R$ {cargo['Salário']:,.2f}")
-        col3.write(cargo["Quantidade"])
-
-        if col4.button("🗑️", key=f"remover_{idx}"):
-            st.session_state.cargos.pop(idx)
-            st.rerun()
-else:
-    st.info("Nenhum cargo adicionado.")
 
 # =====================================================
-# 3️⃣ PARÂMETROS FINANCEIROS
+# CÁLCULOS
 # =====================================================
-st.header("3️⃣ Parâmetros Financeiros")
 
-p1, p2 = st.columns(2)
-vale_refeicao = p1.number_input(
-    "Vale refeição por colaborador (R$)",
-    value=600.0,
-    step=50.0
-)
+if st.session_state.cargos:
 
-margem_pct = p2.number_input(
-    "Margem de lucro (%)",
-    value=20.0,
-    step=1.0
-)
-
-st.subheader("Regime Tributário")
-
-regime_tributario = st.radio(
-    "Selecione o regime tributário",
-    [
-        "Simples Nacional – Anexo III (21%)",
-        "Lucro Real (18%)"
-    ]
-)
-
-# =====================================================
-# 4️⃣ CONTEÚDO DA PROPOSTA (IA)
-# =====================================================
-st.header("4️⃣ Conteúdo da Proposta (IA)")
-
-contexto = st.text_area(
-    "Contexto da proposta",
-    height=120,
-    placeholder="Descreva o escopo, cliente e objetivos..."
-)
-
-TOM_PADRAO = "executivo, comercial, voltado ao setor farmacêutico"
-
-x1, x2 = st.columns(2)
-if x1.button("Gerar Resumo Executivo"):
-    st.session_state.resumo_exec = gerar_resumo_executivo(contexto, TOM_PADRAO)
-
-if x2.button("Gerar Texto Comercial"):
-    st.session_state.texto_comercial = gerar_texto_comercial(contexto, TOM_PADRAO)
-
-resumo_exec = st.text_area(
-    "Resumo Executivo (editável)",
-    st.session_state.get("resumo_exec", ""),
-    height=200
-)
-
-texto_comercial = st.text_area(
-    "Texto Comercial (editável)",
-    st.session_state.get("texto_comercial", ""),
-    height=260
-)
-
-# =====================================================
-# PREVIEW
-# =====================================================
-st.subheader("📌 Pré-visualização – Resumo Executivo")
-render_texto_preview(resumo_exec)
-
-st.subheader("📌 Pré-visualização – Texto Comercial")
-render_texto_preview(texto_comercial)
-
-# =====================================================
-# 5️⃣ CÁLCULOS
-# =====================================================
-st.header("5️⃣ Resultados")
-
-if st.button("Calcular Precificação"):
-    if not st.session_state.cargos:
-        st.error("Adicione ao menos um cargo.")
-        st.stop()
-
-    # ---------- CLT ----------
-    total_custo_clt = 0
-
-    for cargo in st.session_state.cargos:
-        _, custo_unit = calcular_clt(
-            cargo["Salário"],
-            vale_refeicao
-        )
-        total_custo_clt += custo_unit * cargo["Quantidade"]
-
-    margem = margem_pct / 100
-    preco_sem_imposto = total_custo_clt / (1 - margem)
-
-    # ---------- IMPOSTOS ----------
-    if regime_tributario.startswith("Simples"):
-        regime_nome = "Simples Nacional – Anexo III"
-        aliquota_total = 0.21
-        impostos_base = {
-            "IRPJ": 0.04,
-            "CSLL": 0.035,
-            "PIS": 0.028,
-            "COFINS": 0.127,
-            "CPP": 0.285,
-            "ISS": 0.485
-        }
-        valor_total_imposto = preco_sem_imposto * aliquota_total
-        impostos_detalhados = {
-            nome: valor_total_imposto * perc
-            for nome, perc in impostos_base.items()
-        }
-    else:
-        regime_nome = "Lucro Real"
-        aliquota_total = 0.18
-        impostos_base = {
-            "IRPJ": 0.06,
-            "CSLL": 0.035,
-            "PIS": 0.02,
-            "COFINS": 0.05,
-            "CPRB": 0.015
-        }
-        valor_total_imposto = preco_sem_imposto * aliquota_total
-        impostos_detalhados = {
-            nome: preco_sem_imposto * perc
-            for nome, perc in impostos_base.items()
-        }
-
-    lucro_total = preco_sem_imposto - total_custo_clt
-    preco_final = preco_sem_imposto + valor_total_imposto
-
-    st.session_state.resultado = {
-        "custos": {
-            "clt_total": total_custo_clt
-        },
-        "precificacao": {
-            "preco_sem_imposto": preco_sem_imposto,
-            "preco_com_imposto": preco_final,
-            "lucro": lucro_total,
-            "margem": margem
-        },
-        "impostos": {
-            "regime": regime_nome,
-            "aliquota_total": aliquota_total,
-            "valor_total": valor_total_imposto,
-            "detalhado": impostos_detalhados
-        }
-    }
-
-# =====================================================
-# 6️⃣ EXIBIÇÃO DOS RESULTADOS
-# =====================================================
-if "resultado" in st.session_state:
-    r = st.session_state.resultado
-
-    st.subheader("📌 Resumo Financeiro Consolidado")
-
-    a, b, c, d = st.columns(4)
-    a.metric("Custo CLT Total", f"R$ {r['custos']['clt_total']:,.2f}")
-    b.metric("Impostos Totais", f"R$ {r['impostos']['valor_total']:,.2f}")
-    c.metric("Lucro Total", f"R$ {r['precificacao']['lucro']:,.2f}")
-    d.metric("Valor da Nota Fiscal", f"R$ {r['precificacao']['preco_com_imposto']:,.2f}")
-
-    # =================================================
-    # DETALHAMENTO POR CARGO
-    # =================================================
-    st.header("📌 Detalhamento por Cargo")
-
+    # ---- CUSTOS CLT TOTAIS ----
+    total_clt = 0
     dados_cargos = []
 
     for cargo in st.session_state.cargos:
@@ -266,37 +127,19 @@ if "resultado" in st.session_state:
 
         qtd = cargo["Quantidade"]
         custo_total_cargo = custo_unit * qtd
-        proporcao = custo_total_cargo / r["custos"]["clt_total"]
+        total_clt += custo_total_cargo
 
-        impostos_cargo = {
-            nome: valor * proporcao
-            for nome, valor in r["impostos"]["detalhado"].items()
-        }
+    # ---- IMPOSTOS (SIMPLIFICADO) ----
+    impostos = detalhar_das(total_clt, "III")
+    total_impostos = sum(impostos.values())
 
-        total_imposto_cargo = sum(impostos_cargo.values())
-        lucro_cargo = r["precificacao"]["lucro"] * proporcao
+    # ---- PRECIFICAÇÃO ----
+    preco_total, lucro_total = precificar(
+        total_clt + total_impostos,
+        margem_lucro
+    )
 
-        dados_cargos.append({
-            "Cargo": cargo["Cargo"],
-            "Quantidade": qtd,
-            "Custo CLT Unitário (R$)": custo_unit,
-            "Custo CLT Total (R$)": custo_total_cargo,
-            "Impostos Total Cargo (R$)": total_imposto_cargo,
-            "Lucro Total Cargo (R$)": lucro_cargo,
-            "Lucro Unitário (R$)": lucro_cargo / qtd,
-            "Preço Total Cargo (R$)": custo_total_cargo + total_imposto_cargo + lucro_cargo,
-            "Preço Unitário (R$)": (custo_total_cargo + total_imposto_cargo + lucro_cargo) / qtd
-        })
-
-    st.session_state.dados_cargos = dados_cargos
-    df_cargos = pd.DataFrame(dados_cargos)
-    st.dataframe(df_cargos, use_container_width=True)
-
-    # =================================================
-    # DETALHAMENTO DE IMPOSTOS POR CARGO
-    # =================================================
-    st.subheader("📌 Detalhamento de Impostos por Cargo")
-
+    # ---- DETALHAMENTO POR CARGO (BASE DO PDF) ----
     for cargo in st.session_state.cargos:
         detalhes, custo_unit = calcular_clt(
             cargo["Salário"],
@@ -305,63 +148,93 @@ if "resultado" in st.session_state:
 
         qtd = cargo["Quantidade"]
         custo_total_cargo = custo_unit * qtd
-        proporcao = custo_total_cargo / r["custos"]["clt_total"]
+        proporcao = custo_total_cargo / total_clt if total_clt else 0
 
-        impostos_cargo = {
-            nome: valor * proporcao
-            for nome, valor in r["impostos"]["detalhado"].items()
-        }
+        imposto_cargo = total_impostos * proporcao
+        lucro_cargo = lucro_total * proporcao
 
-        with st.expander(f"📂 {cargo['Cargo']} — Impostos detalhados"):
-            for nome, valor in impostos_cargo.items():
-                st.write(f"- {nome}: R$ {valor:,.2f}")
+        dados_cargos.append({
+            "Cargo": cargo["Cargo"],
+            "Quantidade": qtd,
+            "Preço Unitário (R$)": (custo_total_cargo + imposto_cargo + lucro_cargo) / qtd,
+            "Preço Total Cargo (R$)": custo_total_cargo + imposto_cargo + lucro_cargo
+        })
 
-            st.divider()
-            st.write(
-                f"**Total de Impostos do Cargo:** "
-                f"R$ {sum(impostos_cargo.values()):,.2f}"
-            )
+    # 👉 ESTA É A CHAVE DO PROBLEMA RESOLVIDO
+    st.session_state.dados_cargos = dados_cargos
 
-    # =================================================
-    # RELATÓRIOS (PDF)
-    # =================================================
-    st.header("📄 Relatórios")
+    st.subheader("📌 Detalhamento por Cargo")
+    st.dataframe(pd.DataFrame(dados_cargos), use_container_width=True)
 
-    c1, c2 = st.columns(2)
+    st.metric("Valor mensal da NF", f"R$ {preco_total:,.2f}")
+    st.metric("Valor anual da NF", f"R$ {(preco_total * 12):,.2f}")
 
-    if c1.button("Proposta Comercial (PDF)"):
-        gerar_proposta_comercial_pdf(
-            "proposta_comercial.pdf",
-            cliente,
-            titulo_proposta,
-            resumo_exec,
-            "",
-            texto_comercial,
-            validade,
-            f"R$ {r['precificacao']['preco_com_imposto']:,.2f}",
-            f"{margem_pct}%",
-            st.session_state.cargos,
-            st.session_state.dados_cargos
+
+# =====================================================
+# TEXTOS COM IA
+# =====================================================
+
+st.subheader("📝 Textos da Proposta")
+
+if "resumo_exec" not in st.session_state:
+    st.session_state.resumo_exec = ""
+
+if "texto_comercial" not in st.session_state:
+    st.session_state.texto_comercial = ""
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("Gerar Resumo Executivo"):
+        st.session_state.resumo_exec = gerar_resumo_executivo(
+            contexto=cliente,
+            tom="executivo"
         )
-        with open("proposta_comercial.pdf", "rb") as f:
-            st.download_button(
-                "⬇️ Baixar Proposta Comercial",
-                f,
-                "proposta_comercial.pdf"
-            )
 
-    if c2.button("Proposta Técnica (PDF)"):
-        gerar_pdf_tecnico(
-            "proposta_tecnica.pdf",
-            st.session_state.cargos,
-            {},
-            r["impostos"]["valor_total"],
-            r["precificacao"]["lucro"],
-            r["impostos"]["detalhado"]
+    resumo_exec = st.text_area(
+        "Resumo Executivo",
+        value=st.session_state.resumo_exec,
+        height=250
+    )
+
+with col2:
+    if st.button("Gerar Texto Comercial"):
+        st.session_state.texto_comercial = gerar_texto_comercial(
+            contexto=cliente,
+            tom="comercial"
         )
-        with open("proposta_tecnica.pdf", "rb") as f:
-            st.download_button(
-                "⬇️ Baixar Proposta Técnica",
-                f,
-                "proposta_tecnica.pdf"
-            )
+
+    texto_comercial = st.text_area(
+        "Resumo Comercial",
+        value=st.session_state.texto_comercial,
+        height=250
+    )
+
+
+# =====================================================
+# GERAR PDF
+# =====================================================
+
+st.subheader("📄 Gerar Proposta Comercial")
+
+if st.button("Gerar PDF"):
+    gerar_proposta_comercial_pdf(
+        "proposta_comercial.pdf",
+        cliente,
+        titulo_proposta,
+        resumo_exec,
+        "",
+        texto_comercial,
+        validade.strftime("%d/%m/%Y"),
+        f"R$ {preco_total:,.2f}",
+        margem_lucro,
+        st.session_state.dados_cargos  # ✅ OBJETO CORRETO
+    )
+
+    with open("proposta_comercial.pdf", "rb") as f:
+        st.download_button(
+            "⬇️ Baixar Proposta Comercial",
+            f,
+            file_name="proposta_comercial.pdf",
+            mime="application/pdf"
+        )
