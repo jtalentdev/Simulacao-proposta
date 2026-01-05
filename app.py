@@ -109,27 +109,28 @@ if st.session_state.cargos:
 
 
 # =====================================================
-# CÁLCULOS
+# CÁLCULOS E DETALHAMENTO POR CARGO
 # =====================================================
 
 if st.session_state.cargos:
 
-    total_clt = 0
-    dados_cargos = []
+    total_clt = 0.0
 
+    # custo total CLT
     for cargo in st.session_state.cargos:
         _, custo_unit = calcular_clt(
             cargo["Salário"],
             vale_refeicao
         )
+        total_clt += custo_unit * cargo["Quantidade"]
 
-        qtd = cargo["Quantidade"]
-        total_clt += custo_unit * qtd
-
+    # precificação (repasse total + lucro)
     preco_total, lucro_total = precificar(
         total_clt,
         margem_lucro
     )
+
+    dados_cargos = []
 
     for cargo in st.session_state.cargos:
         _, custo_unit = calcular_clt(
@@ -149,6 +150,7 @@ if st.session_state.cargos:
             "Preço Total Cargo (R$)": custo_total + lucro_cargo
         })
 
+    # 👉 objeto correto para PDF
     st.session_state.dados_cargos = dados_cargos
 
     st.subheader("📌 Detalhamento por Cargo")
@@ -182,7 +184,7 @@ with col1:
     resumo_exec = st.text_area(
         "Resumo Executivo",
         value=st.session_state.resumo_exec,
-        height=250
+        height=260
     )
 
 with col2:
@@ -195,7 +197,7 @@ with col2:
     texto_comercial = st.text_area(
         "Resumo Comercial",
         value=st.session_state.texto_comercial,
-        height=250
+        height=260
     )
 
 
