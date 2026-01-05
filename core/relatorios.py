@@ -67,7 +67,7 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL – FINAL (ROBUSTO)
+# RELATÓRIO COMERCIAL – FINAL
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -80,7 +80,7 @@ def gerar_proposta_comercial_pdf(
     validade,
     valor_nf,
     _margem,
-    cargos,
+    cargos,  # <- exatamente o dados_cargos da UI
 ):
     doc = SimpleDocTemplate(
         caminho,
@@ -94,20 +94,30 @@ def gerar_proposta_comercial_pdf(
     styles = getSampleStyleSheet()
 
     style_texto = ParagraphStyle(
-        "Texto", parent=styles["Normal"],
-        fontSize=11, leading=16, spaceAfter=10, alignment=4
+        "Texto",
+        parent=styles["Normal"],
+        fontSize=11,
+        leading=16,
+        spaceAfter=10,
+        alignment=4
     )
 
     style_titulo = ParagraphStyle(
-        "Titulo", parent=styles["Normal"],
-        fontSize=13, fontName="Helvetica-Bold",
-        spaceBefore=18, spaceAfter=10
+        "Titulo",
+        parent=styles["Normal"],
+        fontSize=13,
+        fontName="Helvetica-Bold",
+        spaceBefore=18,
+        spaceAfter=10
     )
 
     style_subtitulo = ParagraphStyle(
-        "Subtitulo", parent=styles["Normal"],
-        fontSize=12, fontName="Helvetica-Bold",
-        spaceBefore=14, spaceAfter=6
+        "Subtitulo",
+        parent=styles["Normal"],
+        fontSize=12,
+        fontName="Helvetica-Bold",
+        spaceBefore=14,
+        spaceAfter=6
     )
 
     story = []
@@ -125,33 +135,16 @@ def gerar_proposta_comercial_pdf(
     # ---------- VALORES DO CONTRATO ----------
     story.append(Paragraph("Valores do Contrato", style_titulo))
 
-    tabela = [["Cargo", "Quantidade", "Custo unitário (R$)", "Custo total (R$)"]]
+    tabela = [
+        ["Cargo", "Quantidade", "Custo unitário (R$)", "Custo total (R$)"]
+    ]
 
     for c in cargos:
-        nome = (
-            c.get("cargo")
-            or c.get("nome")
-            or c.get("cargo_nome")
-            or "—"
-        )
-
-        quantidade = c.get("quantidade") or c.get("qtd") or 1
-
-        custo_total = (
-            c.get("custo_total")
-            or c.get("custo_clt_total")
-            or 0.0
-        )
-
-        custo_unitario = c.get("custo_unitario")
-        if custo_unitario is None:
-            custo_unitario = custo_total / quantidade if quantidade else 0.0
-
         tabela.append([
-            nome,
-            quantidade,
-            f"R$ {custo_unitario:,.2f}",
-            f"R$ {custo_total:,.2f}"
+            c["Cargo"],
+            c["Quantidade"],
+            f'R$ {c["Custo CLT Unitário (R$)"]:,.2f}',
+            f'R$ {c["Custo CLT Total (R$)"]:,.2f}',
         ])
 
     table = Table(tabela, colWidths=[6*cm, 3*cm, 4*cm, 4*cm])
@@ -208,12 +201,21 @@ def gerar_proposta_comercial_pdf(
         if os.path.exists(logo):
             c.drawImage(
                 ImageReader(logo),
-                margem, topo - 3.6 * cm,
-                width=3.2 * cm, height=3.2 * cm,
-                preserveAspectRatio=True, mask="auto"
+                margem,
+                topo - 3.6 * cm,
+                width=3.2 * cm,
+                height=3.2 * cm,
+                preserveAspectRatio=True,
+                mask="auto"
             )
 
-        style = ParagraphStyle("cab", fontSize=14, fontName="Helvetica-Bold", alignment=2)
+        style = ParagraphStyle(
+            "cab",
+            fontSize=14,
+            fontName="Helvetica-Bold",
+            alignment=2
+        )
+
         largura_texto = largura - margem * 2 - 4.6 * cm
         p = Paragraph(titulo_proposta, style)
         _, h = p.wrap(largura_texto, 4 * cm)
@@ -228,7 +230,8 @@ def gerar_proposta_comercial_pdf(
 
         c.setFont("Helvetica", 8)
         c.drawCentredString(
-            largura / 2, 1.6 * cm,
+            largura / 2,
+            1.6 * cm,
             "J Talent Empreendimentos | Proposta Comercial | "
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
@@ -247,7 +250,11 @@ def gerar_proposta_comercial_pdf(
             for p in self._pages:
                 self.__dict__.update(p)
                 self.setFont("Helvetica", 9)
-                self.drawRightString(A4[0] - 2.5 * cm, 2.6 * cm, f"{self.getPageNumber()} / {total}")
+                self.drawRightString(
+                    A4[0] - 2.5 * cm,
+                    2.6 * cm,
+                    f"{self.getPageNumber()} / {total}"
+                )
                 super().showPage()
             super().save()
 
