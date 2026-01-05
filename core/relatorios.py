@@ -9,41 +9,36 @@ from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# UTILITÁRIO – INTERPRETAR TEXTO DA IA (ROBUSTO)
+# UTILITÁRIO – INTERPRETAR TEXTO DA IA (ROBUSTO E FIEL)
 # =====================================================
 
 def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
     linhas = texto.splitlines()
-
     buffer_paragrafo = []
 
     def flush_paragrafo():
         if buffer_paragrafo:
-            texto_par = " ".join(buffer_paragrafo).strip()
+            texto_par = "<br/>".join(buffer_paragrafo).strip()
             if texto_par:
                 story.append(Paragraph(texto_par, style_texto))
             buffer_paragrafo.clear()
 
     for linha in linhas:
-        linha = linha.strip()
+        linha = linha.rstrip()
 
         # Linha vazia = quebra de parágrafo
-        if not linha:
+        if not linha.strip():
             flush_paragrafo()
             continue
 
-        # -------------------------------------------------
         # 1) **Título**
-        # -------------------------------------------------
-        match_titulo = re.fullmatch(r"\*\*(.+?)\*\*", linha)
+        match_titulo = re.fullmatch(r"\*\*(.+?)\*\*", linha.strip())
         if match_titulo:
             flush_paragrafo()
             story.append(Paragraph(match_titulo.group(1), style_subtitulo))
             continue
 
-        # -------------------------------------------------
         # 2) **Título:** texto
-        # -------------------------------------------------
         match_inline = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if match_inline:
             flush_paragrafo()
@@ -51,50 +46,38 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
             story.append(Paragraph(match_inline.group(2), style_texto))
             continue
 
-        # -------------------------------------------------
         # 3) - **Título:** texto
-        # -------------------------------------------------
         match_bullet = re.match(r"[-•]\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if match_bullet:
             flush_paragrafo()
-            titulo = match_bullet.group(1)
-            texto_restante = match_bullet.group(2)
             story.append(
                 Paragraph(
-                    f"<b>- {titulo}:</b> {texto_restante}",
+                    f"<b>- {match_bullet.group(1)}:</b> {match_bullet.group(2)}",
                     style_texto
                 )
             )
             continue
 
-        # -------------------------------------------------
         # 4) 1. **Título:** texto
-        # -------------------------------------------------
         match_num = re.match(r"(\d+\.?)\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if match_num:
             flush_paragrafo()
-            numero = match_num.group(1)
-            titulo = match_num.group(2)
-            texto_restante = match_num.group(3)
             story.append(
                 Paragraph(
-                    f"<b>{numero} {titulo}:</b> {texto_restante}",
+                    f"<b>{match_num.group(1)} {match_num.group(2)}:</b> {match_num.group(3)}",
                     style_texto
                 )
             )
             continue
 
-        # -------------------------------------------------
-        # 5) Texto normal (acumula)
-        # -------------------------------------------------
-        buffer_paragrafo.append(linha)
+        # 5) Texto normal (mantém ENTER como <br/>)
+        buffer_paragrafo.append(linha.strip())
 
-    # Garante que o último parágrafo seja renderizado
     flush_paragrafo()
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL (PLATYPUS – FINAL)
+# RELATÓRIO COMERCIAL (FINAL)
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -152,62 +135,39 @@ def gerar_proposta_comercial_pdf(
 
     story = []
 
-    # ---------------- RESUMO EXECUTIVO ----------------
     story.append(Paragraph("Resumo Executivo", style_titulo))
-    renderizar_texto_com_subtitulos(
-        resumo_exec, story, style_texto, style_subtitulo
-    )
+    renderizar_texto_com_subtitulos(resumo_exec, story, style_texto, style_subtitulo)
     story.append(Spacer(1, 14))
 
-    # ---------------- RESUMO COMERCIAL ----------------
     story.append(Paragraph("Resumo Comercial", style_titulo))
-    renderizar_texto_com_subtitulos(
-        texto_comercial, story, style_texto, style_subtitulo
-    )
+    renderizar_texto_com_subtitulos(texto_comercial, story, style_texto, style_subtitulo)
     story.append(Spacer(1, 18))
 
-    # ---------------- VALORES ----------------
     story.append(Paragraph("Valores do Contrato", style_titulo))
 
-    valor_mensal = float(
-        valor_nf.replace("R$", "").replace(".", "").replace(",", ".")
-    )
-
-    story.append(
-        Paragraph(
-            "O valor mensal estimado para a prestação dos serviços descritos nesta proposta é de:",
-            style_texto
-        )
-    )
-
-    story.append(
-        Paragraph(
-            f"<b>R$ {valor_mensal:,.2f}</b> <font size=9>(valor mensal)</font>",
-            style_texto
-        )
-    )
-
+    valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
+    story.append(Paragraph(
+        "O valor mensal estimado para a prestação dos serviços descritos nesta proposta é de:",
+        style_texto
+    ))
+    story.append(Paragraph(
+        f"<b>R$ {valor_mensal:,.2f}</b> <font size=9>(valor mensal)</font>",
+        style_texto
+    ))
     story.append(Spacer(1, 12))
+    story.append(Paragraph(
+        "Considerando um período completo de 12 meses, o valor total anual do contrato será de:",
+        style_texto
+    ))
+    story.append(Paragraph(
+        f"<b>R$ {(valor_mensal * 12):,.2f}</b> <font size=9>(valor anual)</font>",
+        style_texto
+    ))
 
-    story.append(
-        Paragraph(
-            "Considerando um período completo de 12 meses, o valor total anual do contrato será de:",
-            style_texto
-        )
-    )
-
-    story.append(
-        Paragraph(
-            f"<b>R$ {(valor_mensal * 12):,.2f}</b> <font size=9>(valor anual)</font>",
-            style_texto
-        )
-    )
-
-    # ---------------- CABEÇALHO / RODAPÉ (CONGELADOS) ----------------
+    # Cabeçalho, rodapé e numeração permanecem CONGELADOS
     def desenhar_cabecalho_rodape(canvas_obj, doc_obj):
         largura, altura = A4
-        margem_esq = 2.5 * cm
-        margem_dir = 2.5 * cm
+        margem_esq, margem_dir = 2.5 * cm, 2.5 * cm
         topo = altura - 2.5 * cm
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -224,33 +184,22 @@ def gerar_proposta_comercial_pdf(
                 mask="auto"
             )
 
-        style_cab = ParagraphStyle(
-            "CabTitulo",
-            fontName="Helvetica-Bold",
-            fontSize=14,
-            leading=16,
-            alignment=2
-        )
-
-        largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1.0 * cm)
+        style_cab = ParagraphStyle("Cab", fontName="Helvetica-Bold", fontSize=14, alignment=2)
+        largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1 * cm)
         p = Paragraph(titulo_proposta, style_cab)
         _, h = p.wrap(largura_texto, 4 * cm)
         p.drawOn(canvas_obj, largura - margem_dir - largura_texto, topo - 0.6 * cm - h)
 
-        y_base = topo - 0.6 * cm - h - 0.4 * cm
+        y = topo - 0.6 * cm - h - 0.4 * cm
         canvas_obj.setFont("Helvetica", 11)
-        canvas_obj.drawRightString(largura - margem_dir, y_base, cliente)
-        canvas_obj.drawRightString(
-            largura - margem_dir, y_base - 0.8 * cm, f"Validade: {validade}"
-        )
+        canvas_obj.drawRightString(largura - margem_dir, y, cliente)
+        canvas_obj.drawRightString(largura - margem_dir, y - 0.8 * cm, f"Validade: {validade}")
 
-        y_linha = topo - 4.2 * cm
-        canvas_obj.line(margem_esq, y_linha, largura - margem_dir, y_linha)
+        canvas_obj.line(margem_esq, topo - 4.2 * cm, largura - margem_dir, topo - 4.2 * cm)
 
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.drawCentredString(
-            largura / 2,
-            1.6 * cm,
+            largura / 2, 1.6 * cm,
             "J Talent Empreendimentos | Proposta Comercial | "
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
@@ -269,11 +218,7 @@ def gerar_proposta_comercial_pdf(
             for state in self._saved_page_states:
                 self.__dict__.update(state)
                 self.setFont("Helvetica", 9)
-                self.drawRightString(
-                    A4[0] - 2.5 * cm,
-                    2.6 * cm,
-                    f"{self.getPageNumber()} / {total}"
-                )
+                self.drawRightString(A4[0] - 2.5 * cm, 2.6 * cm, f"{self.getPageNumber()} / {total}")
                 super().showPage()
             super().save()
 
@@ -283,22 +228,3 @@ def gerar_proposta_comercial_pdf(
         onLaterPages=desenhar_cabecalho_rodape,
         canvasmaker=NumberedCanvas
     )
-
-
-# =====================================================
-# RELATÓRIO TÉCNICO (CONGELADO)
-# =====================================================
-
-def gerar_pdf_tecnico(
-    caminho_pdf,
-    cargos,
-    clt_detalhado,
-    das_total,
-    lucro,
-    das_detalhado
-):
-    c = canvas.Canvas(caminho_pdf, pagesize=A4)
-    largura, altura = A4
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(2.5 * cm, altura - 3 * cm, "PROPOSTA TÉCNICA")
-    c.save()
