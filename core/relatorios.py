@@ -17,8 +17,10 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
 
     for bloco in blocos:
         bloco = bloco.strip()
+        if not bloco:
+            continue
 
-        # Subtítulo em Markdown (**Texto**)
+        # Subtítulo Markdown (**Texto**)
         if re.fullmatch(r"\*\*(.+?)\*\*", bloco):
             titulo = bloco.replace("**", "")
             story.append(Paragraph(titulo, style_subtitulo))
@@ -50,8 +52,8 @@ def gerar_proposta_comercial_pdf(
         pagesize=A4,
         rightMargin=2.5 * cm,
         leftMargin=2.5 * cm,
-        topMargin=7.0 * cm,
-        bottomMargin=3.5 * cm,
+        topMargin=7.0 * cm,      # espaço reservado ao cabeçalho
+        bottomMargin=3.5 * cm,   # espaço reservado ao rodapé
     )
 
     styles = getSampleStyleSheet()
@@ -78,7 +80,7 @@ def gerar_proposta_comercial_pdf(
         spaceAfter=8
     )
 
-    # Subtítulo interno (vindo da IA com **)
+    # Subtítulo interno (IA com **)
     style_subtitulo = ParagraphStyle(
         "Subtitulo",
         parent=styles["Normal"],
@@ -191,14 +193,14 @@ def gerar_proposta_comercial_pdf(
 
         largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1.0 * cm)
         p = Paragraph(titulo_proposta, style_titulo_cab)
-        w, h = p.wrap(largura_texto, 4 * cm)
+        _, h = p.wrap(largura_texto, 4 * cm)
         p.drawOn(
             canvas_obj,
             largura - margem_dir - largura_texto,
             topo - 0.6 * cm - h
         )
 
-        # Cliente e validade posicionados dinamicamente
+        # Cliente e validade abaixo do título
         y_base = topo - 0.6 * cm - h - 0.4 * cm
 
         canvas_obj.setFont("Helvetica", 11)
@@ -209,11 +211,11 @@ def gerar_proposta_comercial_pdf(
             f"Validade: {validade}"
         )
 
-        # Linha do cabeçalho
+        # Linha separadora do cabeçalho
         y_linha = topo - 4.2 * cm
         canvas_obj.line(margem_esq, y_linha, largura - margem_dir, y_linha)
 
-        # Rodapé institucional
+        # Rodapé institucional (texto)
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.drawCentredString(
             largura / 2,
@@ -222,7 +224,9 @@ def gerar_proposta_comercial_pdf(
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
 
-    # Numeração correta X / Y
+    # ==================================================
+    # CANVAS COM NUMERAÇÃO X / Y CORRETA
+    # ==================================================
     class NumberedCanvas(canvas.Canvas):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -233,19 +237,21 @@ def gerar_proposta_comercial_pdf(
             self._startPage()
 
         def save(self):
-            num_pages = len(self._saved_page_states)
+            total_paginas = len(self._saved_page_states)
             for state in self._saved_page_states:
                 self.__dict__.update(state)
                 self.setFont("Helvetica", 9)
                 self.drawRightString(
                     A4[0] - 2.5 * cm,
                     2.6 * cm,
-                    f"{self.getPageNumber()} / {num_pages}"
+                    f"{self.getPageNumber()} / {total_paginas}"
                 )
                 super().showPage()
             super().save()
 
-    # Build final
+    # -------------------------------------------------
+    # BUILD FINAL
+    # -------------------------------------------------
     doc.build(
         story,
         onFirstPage=desenhar_cabecalho_rodape,
