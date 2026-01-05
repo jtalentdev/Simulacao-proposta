@@ -9,30 +9,44 @@ from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# UTILITÁRIO – INTERPRETAR TEXTO DA IA (SUBTÍTULOS E BULLETS)
+# UTILITÁRIO – INTERPRETAR TEXTO DA IA (ROBUSTO)
 # =====================================================
 
 def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
-    blocos = texto.split("\n\n")
+    linhas = texto.splitlines()
 
-    for bloco in blocos:
-        bloco = bloco.strip()
-        if not bloco:
+    buffer_paragrafo = []
+
+    def flush_paragrafo():
+        if buffer_paragrafo:
+            texto_par = " ".join(buffer_paragrafo).strip()
+            if texto_par:
+                story.append(Paragraph(texto_par, style_texto))
+            buffer_paragrafo.clear()
+
+    for linha in linhas:
+        linha = linha.strip()
+
+        # Linha vazia = quebra de parágrafo
+        if not linha:
+            flush_paragrafo()
             continue
 
         # -------------------------------------------------
         # 1) **Título**
         # -------------------------------------------------
-        match_titulo = re.fullmatch(r"\*\*(.+?)\*\*", bloco)
+        match_titulo = re.fullmatch(r"\*\*(.+?)\*\*", linha)
         if match_titulo:
+            flush_paragrafo()
             story.append(Paragraph(match_titulo.group(1), style_subtitulo))
             continue
 
         # -------------------------------------------------
-        # 2) **Título:** texto contínuo
+        # 2) **Título:** texto
         # -------------------------------------------------
-        match_inline = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", bloco)
+        match_inline = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if match_inline:
+            flush_paragrafo()
             story.append(Paragraph(match_inline.group(1), style_subtitulo))
             story.append(Paragraph(match_inline.group(2), style_texto))
             continue
@@ -40,18 +54,25 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
         # -------------------------------------------------
         # 3) - **Título:** texto
         # -------------------------------------------------
-        match_bullet = re.match(r"[-•]\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", bloco)
+        match_bullet = re.match(r"[-•]\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if match_bullet:
-            titulo = f"- {match_bullet.group(1)}"
+            flush_paragrafo()
+            titulo = match_bullet.group(1)
             texto_restante = match_bullet.group(2)
-            story.append(Paragraph(f"<b>{titulo}:</b> {texto_restante}", style_texto))
+            story.append(
+                Paragraph(
+                    f"<b>- {titulo}:</b> {texto_restante}",
+                    style_texto
+                )
+            )
             continue
 
         # -------------------------------------------------
         # 4) 1. **Título:** texto
         # -------------------------------------------------
-        match_num = re.match(r"(\d+\.?)\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", bloco)
+        match_num = re.match(r"(\d+\.?)\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
         if match_num:
+            flush_paragrafo()
             numero = match_num.group(1)
             titulo = match_num.group(2)
             texto_restante = match_num.group(3)
@@ -64,9 +85,12 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
             continue
 
         # -------------------------------------------------
-        # 5) Texto normal
+        # 5) Texto normal (acumula)
         # -------------------------------------------------
-        story.append(Paragraph(bloco, style_texto))
+        buffer_paragrafo.append(linha)
+
+    # Garante que o último parágrafo seja renderizado
+    flush_paragrafo()
 
 
 # =====================================================
