@@ -9,7 +9,7 @@ from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# UTILITÁRIO – INTERPRETAR SUBTÍTULOS DA IA (**)
+# UTILITÁRIO – INTERPRETAR TEXTO DA IA (SUBTÍTULOS E BULLETS)
 # =====================================================
 
 def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
@@ -20,28 +20,57 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
         if not bloco:
             continue
 
-        # Caso 1: **Título**
+        # -------------------------------------------------
+        # 1) **Título**
+        # -------------------------------------------------
         match_titulo = re.fullmatch(r"\*\*(.+?)\*\*", bloco)
         if match_titulo:
             story.append(Paragraph(match_titulo.group(1), style_subtitulo))
             continue
 
-        # Caso 2: **Título:** texto contínuo
+        # -------------------------------------------------
+        # 2) **Título:** texto contínuo
+        # -------------------------------------------------
         match_inline = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", bloco)
         if match_inline:
-            titulo = match_inline.group(1)
-            texto_restante = match_inline.group(2)
-
-            story.append(Paragraph(titulo, style_subtitulo))
-            story.append(Paragraph(texto_restante, style_texto))
+            story.append(Paragraph(match_inline.group(1), style_subtitulo))
+            story.append(Paragraph(match_inline.group(2), style_texto))
             continue
 
-        # Caso normal
+        # -------------------------------------------------
+        # 3) - **Título:** texto
+        # -------------------------------------------------
+        match_bullet = re.match(r"[-•]\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", bloco)
+        if match_bullet:
+            titulo = f"- {match_bullet.group(1)}"
+            texto_restante = match_bullet.group(2)
+            story.append(Paragraph(f"<b>{titulo}:</b> {texto_restante}", style_texto))
+            continue
+
+        # -------------------------------------------------
+        # 4) 1. **Título:** texto
+        # -------------------------------------------------
+        match_num = re.match(r"(\d+\.?)\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", bloco)
+        if match_num:
+            numero = match_num.group(1)
+            titulo = match_num.group(2)
+            texto_restante = match_num.group(3)
+            story.append(
+                Paragraph(
+                    f"<b>{numero} {titulo}:</b> {texto_restante}",
+                    style_texto
+                )
+            )
+            continue
+
+        # -------------------------------------------------
+        # 5) Texto normal
+        # -------------------------------------------------
         story.append(Paragraph(bloco, style_texto))
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL (PLATYPUS – DEFINITIVO)
+# RELATÓRIO COMERCIAL (PLATYPUS – FINAL)
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -150,7 +179,7 @@ def gerar_proposta_comercial_pdf(
         )
     )
 
-    # ---------------- CABEÇALHO / RODAPÉ ----------------
+    # ---------------- CABEÇALHO / RODAPÉ (CONGELADOS) ----------------
     def desenhar_cabecalho_rodape(canvas_obj, doc_obj):
         largura, altura = A4
         margem_esq = 2.5 * cm
