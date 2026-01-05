@@ -291,6 +291,9 @@ if "resultado" in st.session_state:
     df_cargos = pd.DataFrame(dados_cargos)
     st.dataframe(df_cargos, use_container_width=True)
 
+    # ✅ PERSISTE O OBJETO CORRETO PARA O PDF
+    st.session_state.dados_cargos = dados_cargos
+
     # =================================================
     # DETALHAMENTO DE IMPOSTOS POR CARGO
     # =================================================
@@ -339,7 +342,7 @@ if "resultado" in st.session_state:
             validade,
             f"R$ {r['precificacao']['preco_com_imposto']:,.2f}",
             f"{margem_pct}%",
-            st.session_state.cargos
+            st.session_state.dados_cargos  # ✅ AGORA CORRETO
         )
         with open("proposta_comercial.pdf", "rb") as f:
             st.download_button(
