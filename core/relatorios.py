@@ -12,7 +12,7 @@ from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# UTILITÁRIO – PARSER DE TEXTO DA IA (ROBUSTO E FIEL)
+# UTILITÁRIO – PARSER DE TEXTO DA IA
 # =====================================================
 
 def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
@@ -67,7 +67,7 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL – FINAL
+# RELATÓRIO COMERCIAL – FINAL (ROBUSTO)
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -80,7 +80,7 @@ def gerar_proposta_comercial_pdf(
     validade,
     valor_nf,
     _margem,
-    cargos,  # <-- USADO AQUI
+    cargos,
 ):
     doc = SimpleDocTemplate(
         caminho,
@@ -125,17 +125,33 @@ def gerar_proposta_comercial_pdf(
     # ---------- VALORES DO CONTRATO ----------
     story.append(Paragraph("Valores do Contrato", style_titulo))
 
-    # TABELA DE CARGOS
-    tabela = [
-        ["Cargo", "Quantidade", "Custo unitário (R$)", "Custo total (R$)"]
-    ]
+    tabela = [["Cargo", "Quantidade", "Custo unitário (R$)", "Custo total (R$)"]]
 
     for c in cargos:
+        nome = (
+            c.get("cargo")
+            or c.get("nome")
+            or c.get("cargo_nome")
+            or "—"
+        )
+
+        quantidade = c.get("quantidade") or c.get("qtd") or 1
+
+        custo_total = (
+            c.get("custo_total")
+            or c.get("custo_clt_total")
+            or 0.0
+        )
+
+        custo_unitario = c.get("custo_unitario")
+        if custo_unitario is None:
+            custo_unitario = custo_total / quantidade if quantidade else 0.0
+
         tabela.append([
-            c["cargo"],
-            c["quantidade"],
-            f'R$ {c["custo_unitario"]:,.2f}',
-            f'R$ {c["custo_total"]:,.2f}'
+            nome,
+            quantidade,
+            f"R$ {custo_unitario:,.2f}",
+            f"R$ {custo_total:,.2f}"
         ])
 
     table = Table(tabela, colWidths=[6*cm, 3*cm, 4*cm, 4*cm])
@@ -144,14 +160,11 @@ def gerar_proposta_comercial_pdf(
         ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
         ("ALIGN", (1,1), (-1,-1), "RIGHT"),
         ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
-        ("BOTTOMPADDING", (0,0), (-1,0), 8),
-        ("TOPPADDING", (0,0), (-1,0), 8),
     ]))
 
     story.append(table)
     story.append(Spacer(1, 18))
 
-    # VALORES
     valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
     story.append(Paragraph(
         "O valor mensal estimado para a prestação dos serviços descritos nesta proposta é de:",
@@ -161,7 +174,9 @@ def gerar_proposta_comercial_pdf(
         f"<b>R$ {valor_mensal:,.2f}</b> <font size=9>(valor mensal)</font>",
         style_texto
     ))
+
     story.append(Spacer(1, 12))
+
     story.append(Paragraph(
         "Considerando um período completo de 12 meses, o valor total anual do contrato será de:",
         style_texto
@@ -173,7 +188,6 @@ def gerar_proposta_comercial_pdf(
 
     story.append(Spacer(1, 24))
 
-    # ASSINATURA FINAL
     story.append(Paragraph(
         "Atenciosamente,<br/><br/>"
         "Jhonny Souza<br/>"
