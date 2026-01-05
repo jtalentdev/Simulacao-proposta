@@ -9,14 +9,14 @@ from reportlab.pdfgen import canvas
 
 
 # =====================================================
-# UTILITÁRIO – INTERPRETAR TEXTO DA IA (ROBUSTO E FIEL)
+# UTILITÁRIO – PARSER DE TEXTO DA IA (ROBUSTO)
 # =====================================================
 
 def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
     linhas = texto.splitlines()
     buffer_paragrafo = []
 
-    def flush_paragrafo():
+    def flush():
         if buffer_paragrafo:
             texto_par = "<br/>".join(buffer_paragrafo).strip()
             if texto_par:
@@ -26,54 +26,46 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
     for linha in linhas:
         linha = linha.rstrip()
 
-        # Linha vazia = quebra de parágrafo
         if not linha.strip():
-            flush_paragrafo()
+            flush()
             continue
 
-        # 1) **Título**
-        match_titulo = re.fullmatch(r"\*\*(.+?)\*\*", linha.strip())
-        if match_titulo:
-            flush_paragrafo()
-            story.append(Paragraph(match_titulo.group(1), style_subtitulo))
+        # **Título**
+        m = re.fullmatch(r"\*\*(.+?)\*\*", linha.strip())
+        if m:
+            flush()
+            story.append(Paragraph(m.group(1), style_subtitulo))
             continue
 
-        # 2) **Título:** texto
-        match_inline = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
-        if match_inline:
-            flush_paragrafo()
-            story.append(Paragraph(match_inline.group(1), style_subtitulo))
-            story.append(Paragraph(match_inline.group(2), style_texto))
+        # **Título:** texto
+        m = re.match(r"\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
+        if m:
+            flush()
+            story.append(Paragraph(m.group(1), style_subtitulo))
+            story.append(Paragraph(m.group(2), style_texto))
             continue
 
-        # 3) - **Título:** texto
-        match_bullet = re.match(r"[-•]\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
-        if match_bullet:
-            flush_paragrafo()
+        # - **Título:** texto
+        m = re.match(r"[-•]\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
+        if m:
+            flush()
             story.append(
-                Paragraph(
-                    f"<b>- {match_bullet.group(1)}:</b> {match_bullet.group(2)}",
-                    style_texto
-                )
+                Paragraph(f"<b>- {m.group(1)}:</b> {m.group(2)}", style_texto)
             )
             continue
 
-        # 4) 1. **Título:** texto
-        match_num = re.match(r"(\d+\.?)\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
-        if match_num:
-            flush_paragrafo()
+        # 1. **Título:** texto
+        m = re.match(r"(\d+\.?)\s*\*\*(.+?)\*\*[:\-]?\s*(.+)", linha)
+        if m:
+            flush()
             story.append(
-                Paragraph(
-                    f"<b>{match_num.group(1)} {match_num.group(2)}:</b> {match_num.group(3)}",
-                    style_texto
-                )
+                Paragraph(f"<b>{m.group(1)} {m.group(2)}:</b> {m.group(3)}", style_texto)
             )
             continue
 
-        # 5) Texto normal (mantém ENTER como <br/>)
         buffer_paragrafo.append(linha.strip())
 
-    flush_paragrafo()
+    flush()
 
 
 # =====================================================
@@ -95,8 +87,8 @@ def gerar_proposta_comercial_pdf(
     doc = SimpleDocTemplate(
         caminho,
         pagesize=A4,
-        rightMargin=2.5 * cm,
         leftMargin=2.5 * cm,
+        rightMargin=2.5 * cm,
         topMargin=7.0 * cm,
         bottomMargin=3.5 * cm,
     )
@@ -106,7 +98,6 @@ def gerar_proposta_comercial_pdf(
     style_texto = ParagraphStyle(
         "Texto",
         parent=styles["Normal"],
-        fontName="Helvetica",
         fontSize=11,
         leading=16,
         spaceAfter=10,
@@ -116,9 +107,8 @@ def gerar_proposta_comercial_pdf(
     style_titulo = ParagraphStyle(
         "Titulo",
         parent=styles["Normal"],
-        fontName="Helvetica-Bold",
         fontSize=13,
-        leading=16,
+        fontName="Helvetica-Bold",
         spaceBefore=18,
         spaceAfter=8
     )
@@ -126,9 +116,8 @@ def gerar_proposta_comercial_pdf(
     style_subtitulo = ParagraphStyle(
         "Subtitulo",
         parent=styles["Normal"],
-        fontName="Helvetica-Bold",
         fontSize=12,
-        leading=15,
+        fontName="Helvetica-Bold",
         spaceBefore=14,
         spaceAfter=6
     )
@@ -164,19 +153,16 @@ def gerar_proposta_comercial_pdf(
         style_texto
     ))
 
-    # Cabeçalho, rodapé e numeração permanecem CONGELADOS
-    def desenhar_cabecalho_rodape(canvas_obj, doc_obj):
+    def cabecalho_rodape(c, d):
         largura, altura = A4
-        margem_esq, margem_dir = 2.5 * cm, 2.5 * cm
+        margem = 2.5 * cm
         topo = altura - 2.5 * cm
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        logo_path = os.path.join(base_dir, "..", "assets", "logo.png")
-
-        if os.path.exists(logo_path):
-            canvas_obj.drawImage(
-                ImageReader(logo_path),
-                margem_esq,
+        logo = os.path.join(os.path.dirname(__file__), "..", "assets", "logo.png")
+        if os.path.exists(logo):
+            c.drawImage(
+                ImageReader(logo),
+                margem,
                 topo - 3.6 * cm,
                 width=3.2 * cm,
                 height=3.2 * cm,
@@ -184,39 +170,40 @@ def gerar_proposta_comercial_pdf(
                 mask="auto"
             )
 
-        style_cab = ParagraphStyle("Cab", fontName="Helvetica-Bold", fontSize=14, alignment=2)
-        largura_texto = largura - margem_dir - (margem_esq + 3.6 * cm + 1 * cm)
-        p = Paragraph(titulo_proposta, style_cab)
+        style = ParagraphStyle("cab", fontSize=14, fontName="Helvetica-Bold", alignment=2)
+        largura_texto = largura - margem * 2 - 4.6 * cm
+        p = Paragraph(titulo_proposta, style)
         _, h = p.wrap(largura_texto, 4 * cm)
-        p.drawOn(canvas_obj, largura - margem_dir - largura_texto, topo - 0.6 * cm - h)
+        p.drawOn(c, largura - margem - largura_texto, topo - 0.6 * cm - h)
 
         y = topo - 0.6 * cm - h - 0.4 * cm
-        canvas_obj.setFont("Helvetica", 11)
-        canvas_obj.drawRightString(largura - margem_dir, y, cliente)
-        canvas_obj.drawRightString(largura - margem_dir, y - 0.8 * cm, f"Validade: {validade}")
+        c.setFont("Helvetica", 11)
+        c.drawRightString(largura - margem, y, cliente)
+        c.drawRightString(largura - margem, y - 0.8 * cm, f"Validade: {validade}")
 
-        canvas_obj.line(margem_esq, topo - 4.2 * cm, largura - margem_dir, topo - 4.2 * cm)
+        c.line(margem, topo - 4.2 * cm, largura - margem, topo - 4.2 * cm)
 
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawCentredString(
-            largura / 2, 1.6 * cm,
+        c.setFont("Helvetica", 8)
+        c.drawCentredString(
+            largura / 2,
+            1.6 * cm,
             "J Talent Empreendimentos | Proposta Comercial | "
             "Contato: +55 (38) 9 8422 4399 | E-mail: contato@jtalent.com.br"
         )
 
     class NumberedCanvas(canvas.Canvas):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self._saved_page_states = []
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            self._pages = []
 
         def showPage(self):
-            self._saved_page_states.append(dict(self.__dict__))
+            self._pages.append(dict(self.__dict__))
             self._startPage()
 
         def save(self):
-            total = len(self._saved_page_states)
-            for state in self._saved_page_states:
-                self.__dict__.update(state)
+            total = len(self._pages)
+            for p in self._pages:
+                self.__dict__.update(p)
                 self.setFont("Helvetica", 9)
                 self.drawRightString(A4[0] - 2.5 * cm, 2.6 * cm, f"{self.getPageNumber()} / {total}")
                 super().showPage()
@@ -224,7 +211,25 @@ def gerar_proposta_comercial_pdf(
 
     doc.build(
         story,
-        onFirstPage=desenhar_cabecalho_rodape,
-        onLaterPages=desenhar_cabecalho_rodape,
+        onFirstPage=cabecalho_rodape,
+        onLaterPages=cabecalho_rodape,
         canvasmaker=NumberedCanvas
     )
+
+
+# =====================================================
+# RELATÓRIO TÉCNICO (PLACEHOLDER CONGELADO)
+# =====================================================
+
+def gerar_pdf_tecnico(
+    caminho_pdf,
+    cargos,
+    clt_detalhado,
+    das_total,
+    lucro,
+    das_detalhado
+):
+    c = canvas.Canvas(caminho_pdf, pagesize=A4)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(2.5 * cm, A4[1] - 3 * cm, "PROPOSTA TÉCNICA")
+    c.save()
