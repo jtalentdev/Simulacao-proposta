@@ -4,12 +4,12 @@ import pandas as pd
 from auth.auth import login
 from core.clt import calcular_clt
 from core.precificacao import precificar
-from core.relatorios import gerar_proposta_comercial_pdf
 from core.ia_textos import gerar_resumo_executivo, gerar_texto_comercial
+from core.relatorios import gerar_proposta_comercial_pdf
 
 
 # =====================================================
-# CONFIGURAÇÃO INICIAL
+# CONFIGURAÇÃO
 # =====================================================
 
 st.set_page_config(
@@ -33,7 +33,7 @@ st.title("📊 Simulador de Precificação CLT – Proposta Comercial")
 
 
 # =====================================================
-# DADOS BÁSICOS DA PROPOSTA
+# DADOS DA PROPOSTA
 # =====================================================
 
 col1, col2, col3 = st.columns(3)
@@ -52,7 +52,24 @@ with col3:
 
 
 # =====================================================
-# PARÂMETROS GERAIS
+# REGIME TRIBUTÁRIO
+# =====================================================
+
+st.subheader("🏛️ Regime Tributário")
+
+regime = st.radio(
+    "Selecione o regime tributário",
+    [
+        "Simples Nacional – Anexo III (21%)",
+        "Lucro Real (18%)"
+    ]
+)
+
+aliquota_imposto = 0.21 if "Simples" in regime else 0.18
+
+
+# =====================================================
+# PARÂMETROS
 # =====================================================
 
 st.subheader("⚙️ Parâmetros Gerais")
@@ -109,14 +126,14 @@ if st.session_state.cargos:
 
 
 # =====================================================
-# CÁLCULOS E DETALHAMENTO POR CARGO
+# CÁLCULOS
 # =====================================================
 
 if st.session_state.cargos:
 
     total_clt = 0.0
 
-    # custo total CLT
+    # Custo CLT total
     for cargo in st.session_state.cargos:
         _, custo_unit = calcular_clt(
             cargo["Salário"],
@@ -124,11 +141,18 @@ if st.session_state.cargos:
         )
         total_clt += custo_unit * cargo["Quantidade"]
 
-    # precificação (repasse total + lucro)
+    # Impostos totais conforme regime
+    total_impostos = total_clt * aliquota_imposto
+
+    # Precificação
     preco_total, lucro_total = precificar(
-        total_clt,
+        total_clt + total_impostos,
         margem_lucro
     )
+
+    # =================================================
+    # DETALHAMENTO POR CARGO (CONGELADO)
+    # =================================================
 
     dados_cargos = []
 
@@ -139,18 +163,24 @@ if st.session_state.cargos:
         )
 
         qtd = cargo["Quantidade"]
-        custo_total = custo_unit * qtd
-        proporcao = custo_total / total_clt if total_clt else 0
+        custo_total_cargo = custo_unit * qtd
+        proporcao = custo_total_cargo / total_clt if total_clt else 0
+
+        imposto_cargo = total_impostos * proporcao
         lucro_cargo = lucro_total * proporcao
 
         dados_cargos.append({
             "Cargo": cargo["Cargo"],
             "Quantidade": qtd,
-            "Preço Unitário (R$)": (custo_total + lucro_cargo) / qtd,
-            "Preço Total Cargo (R$)": custo_total + lucro_cargo
+            "Custo CLT Unitário (R$)": custo_unit,
+            "Custo CLT Total (R$)": custo_total_cargo,
+            "Impostos Total Cargo (R$)": imposto_cargo,
+            "Lucro Total Cargo (R$)": lucro_cargo,
+            "Lucro Unitário (R$)": lucro_cargo / qtd,
+            "Preço Total Cargo (R$)": custo_total_cargo + imposto_cargo + lucro_cargo,
+            "Preço Unitário (R$)": (custo_total_cargo + imposto_cargo + lucro_cargo) / qtd
         })
 
-    # 👉 objeto correto para PDF
     st.session_state.dados_cargos = dados_cargos
 
     st.subheader("📌 Detalhamento por Cargo")
@@ -161,7 +191,7 @@ if st.session_state.cargos:
 
 
 # =====================================================
-# TEXTOS COM IA
+# TEXTOS DA PROPOSTA (IA)
 # =====================================================
 
 st.subheader("📝 Textos da Proposta")
