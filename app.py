@@ -3,7 +3,6 @@ import pandas as pd
 
 from auth.auth import login
 from core.clt import calcular_clt
-from core.simples import detalhar_das
 from core.precificacao import precificar
 from core.relatorios import gerar_proposta_comercial_pdf
 from core.ia_textos import gerar_resumo_executivo, gerar_texto_comercial
@@ -115,52 +114,41 @@ if st.session_state.cargos:
 
 if st.session_state.cargos:
 
-    # ---- CUSTOS CLT TOTAIS ----
     total_clt = 0
     dados_cargos = []
 
     for cargo in st.session_state.cargos:
-        detalhes, custo_unit = calcular_clt(
+        _, custo_unit = calcular_clt(
             cargo["Salário"],
             vale_refeicao
         )
 
         qtd = cargo["Quantidade"]
-        custo_total_cargo = custo_unit * qtd
-        total_clt += custo_total_cargo
+        total_clt += custo_unit * qtd
 
-    # ---- IMPOSTOS (SIMPLIFICADO) ----
-    impostos = detalhar_das(total_clt, "III")
-    total_impostos = sum(impostos.values())
-
-    # ---- PRECIFICAÇÃO ----
     preco_total, lucro_total = precificar(
-        total_clt + total_impostos,
+        total_clt,
         margem_lucro
     )
 
-    # ---- DETALHAMENTO POR CARGO (BASE DO PDF) ----
     for cargo in st.session_state.cargos:
-        detalhes, custo_unit = calcular_clt(
+        _, custo_unit = calcular_clt(
             cargo["Salário"],
             vale_refeicao
         )
 
         qtd = cargo["Quantidade"]
-        custo_total_cargo = custo_unit * qtd
-        proporcao = custo_total_cargo / total_clt if total_clt else 0
-
-        imposto_cargo = total_impostos * proporcao
+        custo_total = custo_unit * qtd
+        proporcao = custo_total / total_clt if total_clt else 0
         lucro_cargo = lucro_total * proporcao
 
         dados_cargos.append({
             "Cargo": cargo["Cargo"],
             "Quantidade": qtd,
-            "Preço Unitário (R$)": (custo_total_cargo + imposto_cargo + lucro_cargo) / qtd,
-            "Preço Total Cargo (R$)": custo_total_cargo + imposto_cargo + lucro_cargo
+            "Preço Unitário (R$)": (custo_total + lucro_cargo) / qtd,
+            "Preço Total Cargo (R$)": custo_total + lucro_cargo
         })
 
-    # 👉 ESTA É A CHAVE DO PROBLEMA RESOLVIDO
     st.session_state.dados_cargos = dados_cargos
 
     st.subheader("📌 Detalhamento por Cargo")
@@ -228,7 +216,7 @@ if st.button("Gerar PDF"):
         validade.strftime("%d/%m/%Y"),
         f"R$ {preco_total:,.2f}",
         margem_lucro,
-        st.session_state.dados_cargos  # ✅ OBJETO CORRETO
+        st.session_state.dados_cargos
     )
 
     with open("proposta_comercial.pdf", "rb") as f:
