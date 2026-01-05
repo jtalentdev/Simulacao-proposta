@@ -1,10 +1,11 @@
 import os
 import re
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
+from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
 
@@ -62,7 +63,7 @@ def renderizar_texto_com_subtitulos(texto, story, style_texto, style_subtitulo):
 
 
 # =====================================================
-# RELATÓRIO COMERCIAL — CONGELADO
+# RELATÓRIO COMERCIAL — CONGELADO + TABELA
 # =====================================================
 
 def gerar_proposta_comercial_pdf(
@@ -75,7 +76,7 @@ def gerar_proposta_comercial_pdf(
     validade,
     valor_nf,
     _margem,
-    _cargos,
+    cargos,   # <- dados_cargos da UI
 ):
     doc = SimpleDocTemplate(
         caminho,
@@ -127,9 +128,34 @@ def gerar_proposta_comercial_pdf(
     renderizar_texto_com_subtitulos(texto_comercial, story, style_texto, style_subtitulo)
     story.append(Spacer(1, 18))
 
-    # ---------- VALORES ----------
+    # ---------- VALORES DO CONTRATO ----------
     story.append(Paragraph("Valores do Contrato", style_titulo))
 
+    # TABELA COMERCIAL (CONFIRMADA)
+    tabela = [
+        ["Cargo", "Quantidade", "Preço unitário (R$)", "Preço total (R$)"]
+    ]
+
+    for c in cargos:
+        tabela.append([
+            c.get("Cargo", "—"),
+            c.get("Quantidade", 0),
+            f'R$ {c.get("Preço Unitário (R$)", 0.0):,.2f}',
+            f'R$ {c.get("Preço Total Cargo (R$)", 0.0):,.2f}',
+        ])
+
+    table = Table(tabela, colWidths=[6*cm, 3*cm, 4*cm, 4*cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("ALIGN", (1,1), (-1,-1), "RIGHT"),
+    ]))
+
+    story.append(table)
+    story.append(Spacer(1, 18))
+
+    # ---------- VALORES MENSAL / ANUAL ----------
     valor_mensal = float(valor_nf.replace("R$", "").replace(".", "").replace(",", "."))
     story.append(Paragraph(
         "O valor mensal estimado para a prestação dos serviços descritos nesta proposta é de:",
@@ -153,6 +179,7 @@ def gerar_proposta_comercial_pdf(
 
     story.append(Spacer(1, 24))
 
+    # ---------- ASSINATURA ----------
     story.append(Paragraph(
         "Atenciosamente,<br/><br/>"
         "Jhonny Souza<br/>"
