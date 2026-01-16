@@ -1,10 +1,6 @@
-# =====================================================
-# Cálculo de custos CLT
-# =====================================================
+# core/clt.py
 
-# Encargos CLT considerados no modelo
-# Percentuais aplicados sobre o salário base
-ENCARGOS = {
+ENCARGOS_CLT = {
     "INSS Patronal": 0.20,
     "RAT": 0.01,
     "FGTS": 0.08,
@@ -17,21 +13,17 @@ ENCARGOS = {
 
 def calcular_clt(salario: float, beneficio: float):
     """
-    Calcula o custo CLT detalhado de um colaborador.
-
-    :param salario: Salário base mensal
-    :param beneficio: Benefício mensal (ex: vale refeição)
-    :return:
-        - detalhes: dict com valor de cada encargo
-        - custo_total: custo total mensal do colaborador
+    Retorna:
+    - detalhes dos encargos
+    - custo total unitário CLT (salário + encargos + benefício)
     """
     detalhes = {}
     total_encargos = 0.0
 
-    for nome, perc in ENCARGOS.items():
+    for nome, perc in ENCARGOS_CLT.items():
         valor = salario * perc
         detalhes[nome] = valor
         total_encargos += valor
 
-    custo_total = salario + total_encargos + beneficio
-    return detalhes, custo_total
+    custo_total_unitario = salario + total_encargos + beneficio
+    return detalhes, custo_total_unitario
