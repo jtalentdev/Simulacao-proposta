@@ -97,7 +97,7 @@ regime_tributario = st.radio(
         "Simples Nacional – 6%",
         "Simples Nacional – 11,20%",
         "Simples Nacional – 13,50%",
-        "Lucro Presumido – 16%"
+        "Lucro Presumido – 15,25%"
     ]
 )
 
@@ -112,7 +112,6 @@ if st.button("Calcular Precificação"):
         st.error("Adicione ao menos um cargo.")
         st.stop()
 
-    # -------- CLT TOTAL --------
     total_clt = 0.0
     custos_unitarios = {}
 
@@ -122,10 +121,9 @@ if st.button("Calcular Precificação"):
         total_clt += custo_unit * cargo["Quantidade"]
 
     margem = margem_pct / 100
-
     preco_sem_imposto = total_clt / (1 - margem)
 
-    # -------- REGIME / ALÍQUOTA --------
+    # -------- REGIME --------
     if regime_tributario == "Simples Nacional – 6%":
         aliquota_total = 0.06
         regime_nome = "Simples Nacional – 6%"
@@ -136,14 +134,14 @@ if st.button("Calcular Precificação"):
         aliquota_total = 0.135
         regime_nome = "Simples Nacional – 13,50%"
     else:
-        aliquota_total = 0.16
-        regime_nome = "Lucro Presumido – 16%"
+        aliquota_total = 0.1525
+        regime_nome = "Lucro Presumido – 15,25%"
 
     imposto_total = preco_sem_imposto * aliquota_total
     preco_com_imposto = preco_sem_imposto + imposto_total
     lucro_total = preco_sem_imposto - total_clt
 
-    # -------- COMPOSIÇÃO DE IMPOSTOS --------
+    # -------- COMPOSIÇÃO DOS IMPOSTOS --------
     COMPOSICAO_SIMPLES = {
         "IRPJ": 0.04,
         "CSLL": 0.035,
@@ -153,11 +151,12 @@ if st.button("Calcular Precificação"):
         "ISS": 0.485
     }
 
-    COMPOSICAO_LP = {
-        "IRPJ": 0.06,
-        "CSLL": 0.035,
-        "PIS": 0.02,
-        "COFINS": 0.045
+    COMPOSICAO_LUCRO_PRESUMIDO = {
+        "PIS": 0.0065,
+        "COFINS": 0.03,
+        "CSLL": 0.028,
+        "IRPJ": 0.048,
+        "ISS": 0.04
     }
 
     if regime_tributario.startswith("Simples"):
@@ -168,10 +167,10 @@ if st.button("Calcular Precificação"):
     else:
         impostos_detalhados = {
             nome: preco_sem_imposto * perc
-            for nome, perc in COMPOSICAO_LP.items()
+            for nome, perc in COMPOSICAO_LUCRO_PRESUMIDO.items()
         }
 
-    # -------- RESUMO CONSOLIDADO --------
+    # -------- RESUMO --------
     st.subheader("📌 Resumo Financeiro Consolidado")
 
     a, b, c, d = st.columns(4)
