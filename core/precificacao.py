@@ -1,21 +1,17 @@
-# =====================================================
-# Precificação (Cost Plus)
-# =====================================================
+# core/precificacao.py
 
-def precificar(custo: float, margem: float):
+def precificar(custo_total: float, margem: float):
     """
-    Calcula o preço de venda e o lucro com base no modelo Cost Plus.
+    custo_total : custo total (CLT + impostos)
+    margem      : margem de lucro (ex: 0.2 para 20%)
 
-    :param custo: Custo total (ex: custo CLT consolidado)
-    :param margem: Margem de lucro desejada (ex: 0.20 para 20%)
-    :return:
-        - preco: preço de venda sem impostos
-        - lucro: valor absoluto do lucro
+    Retorna:
+    - preco_final
+    - lucro_total
     """
     if margem >= 1:
-        raise ValueError("A margem deve ser menor que 100% (1.0)")
+        raise ValueError("Margem deve ser menor que 100%")
 
-    preco = custo / (1 - margem)
-    lucro = preco - custo
-
-    return preco, lucro
+    preco_final = custo_total / (1 - margem)
+    lucro_total = preco_final - custo_total
+    return preco_final, lucro_total
