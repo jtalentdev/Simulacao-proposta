@@ -1,13 +1,13 @@
 # core/clt.py
 
 ENCARGOS_CLT = {
-    "INSS Patronal": 0.20,
+    "INSS Patronal": 0.278,
     "RAT": 0.01,
     "FGTS": 0.08,
     "FGTS adicional": 0.032,
     "13º salário": 0.0833,
-    "Férias": 0.1111,
-    "1/3 constitucional": 0.037
+    "Férias": 1,
+    "1/3 constitucional": 0.34
 }
 
 
